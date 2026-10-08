@@ -33,6 +33,11 @@ native/                   本仓库新增：OTools native 插件 crate（cdylib�
 scripts/
   sync-native-lib.mjs     把 cargo 产物按宿主约定同步到 lib/<平台>.dll|dylib|so
   deploy-to-otools.ps1    同步插件到 otools 仓库 plugins/ 目录
+  pack-plugin.mjs         打包 .oplg（含 native 库校验）
+  verify-plugin.py        独立校验发布产物（摘要 / ZIP / 入口 / native 库 / 生产清单）
+  publish-market.mjs      插件市场发布（生产清单 + 认证 + 提交）
+  release-policy.mjs      只读核验 GitHub 标签归属，防止同版本覆盖他人发布
+.github/workflows/release-plugin.yml   发布流水线（见下）
 ```
 
 ## 开发与构建
@@ -49,17 +54,66 @@ pnpm check          # tsc + eslint
 pnpm native:test    # cargo test -p otools-aigv-native
 pnpm native:build   # cargo build --release -p otools-aigv-native
 pnpm native:sync    # 同步到 lib/Windows.dll（按平台自动选名）
+
+# 打包与校验（本地 dry-run 全链路）
+pnpm release:dry    # build + native:build + native:sync + pack + verify
+pnpm test:scripts   # 发布脚本回归测试（node --test）
 ```
 
-### 关于 OTools SDK
+## 发布链路
+
+`.oplg` 是一个 ZIP，内含 `plugin.json`、`logo.svg`、`dist/` 与 `lib/`。
+本插件是 native 插件，`lib/` 下必须齐备宿主约定的库名：
+
+| 平台 | 库名 | 由谁产出 |
+| --- | --- | --- |
+| Windows | `lib/Windows.dll` | `windows-latest` |
+| Linux | `lib/Linux.so` | `ubuntu-latest` |
+| macOS（通用二进制） | `lib/macOS.dylib` | `macos-latest` + `macos-15-intel` 各自产出 `macOS-arm64.dylib` / `macOS-x86_64.dylib`，再由 `lipo` 合成 |
+
+`release-plugin.yml` 的 job 图：
+
+```
+meta           校验版本 / 标签 / 发布开关（push v* 或手动触发）
+├─ build-web   ubuntu：克隆 SDK → pnpm install → tsc + vite build → dist/
+├─ build-native 4 平台矩阵：cargo build → sync-native-lib → lib/<平台>
+└─ package     macos：合并产物 + lipo 合成 macOS.dylib → pack-plugin → verify-plugin → .oplg
+   └─ publish  GitHub Release（可选同步插件市场）
+```
+
+触发方式：
+
+- 推 `v*` 标签 → 自动构建并正式发布
+- 手动 `workflow_dispatch` → 默认 `dry_run: true`，只构建与校验，不创建 Release、不提交市场
+
+打包前会拒绝以下情况（避免发出「装上跑不起来」的包）：
+
+- `lib/` 缺失、没有任何非空平台库、或库名不符合宿主约定
+- `dist/index.html`（`entry` 指向的文件）不在包内
+- 根目录缺少 `logo.svg`（插件市场要求）
+- 版本号非法或形如 `../../outside`
+
+正式包会剥掉开发期字段：`devUrl`、`quickDev`，以及 `native.autoReload`。
+
+### 需要配置的仓库 Secrets / Variables
+
+| 名称 | 用途 |
+| --- | --- |
+| `secrets.OTOOLS_REPO_TOKEN` | 克隆私有仓库 `ootools/otools-plugin-sdk`（前端构建必需） |
+| `secrets.XYCLOUD_PAT` / `XYCLOUD_LOGIN_TOKEN` / `OTOOLS_MARKET_TOKEN` | 插件市场认证（按 `auth_mode` 选一种） |
+| `vars.OTOOLS_MARKET_API` | 市场接口地址，默认 `https://otools-api.lingyun.net/api/v1/otools/plugin/publish` |
+| `vars.XYCLOUD_AUTH_MODE` / `XYCLOUD_OIDC_ISSUER` / `XYCLOUD_PUBLISHER_ID` | 可选，OIDC 发布 |
+
+## 关于 OTools SDK
 
 前端把 `@tauri-apps/*` 别名到 OTools 插件 SDK 的 shim（`vendor/otools-plugin-sdk`）。
-SDK 位于 otools 主仓库，因此 `vite.config.ts` 会探测两种落位：
+SDK 位于私有仓库 `ootools/otools-plugin-sdk`，`vite.config.ts` 会探测三种落位：
 
-1. `../otools/vendor/otools-plugin-sdk/src` —— 本仓库与 otools 主仓库并列检出
-2. `../../vendor/otools-plugin-sdk/src` —— 插件被同步进 `otools/otools/plugins/otools-aigv`
+1. `<本仓库>/vendor/otools-plugin-sdk/src` —— CI 用令牌克隆到此（已被 `.gitignore` 忽略）
+2. `../otools/vendor/otools-plugin-sdk/src` —— 本仓库与 otools 主仓库并列检出
+3. `../../vendor/otools-plugin-sdk/src` —— 插件被同步进 `otools/otools/plugins/otools-aigv`
 
-两种都不存在时仍可构建，但 `@tauri-apps/*` 会回落到本仓库自带的 shim
+三种都不存在时仍可构建，但 `@tauri-apps/*` 会回落到本仓库自带的 shim
 （`src/infrastructure/otools-shims/`），功能受限。
 
 ## 部署到 otools

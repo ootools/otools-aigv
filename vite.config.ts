@@ -15,11 +15,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
  * 并且要改指向 OTools 插件 SDK 的 shim（把 `invoke()` 路由到宿主的
  * native 插件桥），见 vendor/otools-plugin-sdk。
  *
- * SDK 是 otools 主仓库的 vendor 子模块，因此两种落位都探测一下：
- *  1. `otools/otools-aigv`（本仓库作为 xyito 子模块，与 otools 主仓库平级）
- *  2. `otools/otools/plugins/otools-aigv`（被 deploy 脚本同步进 otools 仓库）
+ * SDK 是 otools 主仓库的 vendor 子模块，因此三种落位都探测一下：
+ *  1. `otools/otools-aigv/vendor/otools-plugin-sdk`（CI 里按需克隆到此，本仓库自包含）
+ *  2. `otools/otools-aigv` 与 otools 主仓库并列检出时的 `../otools/vendor/...`
+ *  3. 插件被同步进 `otools/otools/plugins/otools-aigv` 时的 `../../vendor/...`
  */
 const SDK_DIR_CANDIDATES = [
+  path.resolve(here, 'vendor/otools-plugin-sdk/src'),
   path.resolve(here, '../otools/vendor/otools-plugin-sdk/src'),
   path.resolve(here, '../../vendor/otools-plugin-sdk/src'),
 ];

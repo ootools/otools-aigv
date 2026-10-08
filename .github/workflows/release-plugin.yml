@@ -1,0 +1,300 @@
+name: release-plugin
+run-name: "插件${{ inputs.dry_run && '验证' || '发布' }} · ${{ inputs.display_version || github.ref_name }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      display_version:
+        description: "打包版本号（留空取 plugin.json）"
+        default: ""
+      auth_mode:
+        description: "市场认证方式"
+        type: choice
+        options: [pat, oidc, login, shared]
+        default: pat
+      publish_market:
+        description: "同步插件市场（dry-run 时仅检查配置，不上架）"
+        type: boolean
+        default: false
+      dry_run:
+        description: "仅构建和校验，不创建 Release、不提交市场"
+        type: boolean
+        default: true
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      packid: ${{ steps.meta.outputs.packid }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      publish_enabled: ${{ steps.meta.outputs.publish_enabled }}
+      market_requested: ${{ steps.meta.outputs.market_requested }}
+      market_enabled: ${{ steps.meta.outputs.market_enabled }}
+      validate_release: ${{ steps.meta.outputs.validate_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 校验版本、标签和发布开关
+        id: meta
+        env:
+          DISPLAY_VERSION: ${{ inputs.display_version }}
+          RELEASE_SOURCE_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PUBLISH_MARKET: ${{ inputs.publish_market }}
+          AUTO_PUBLISH_MARKET: ${{ vars.OTOOLS_PUBLISH_MARKET || 'false' }}
+        run: node scripts/publish-market.mjs meta
+
+  build-web:
+    needs: meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      # 前端构建需要 OTools 插件 SDK（@tauri-apps/* 的 shim 来源）。
+      # 它是私有仓库，因此用令牌克隆到 vendor/otools-plugin-sdk，
+      # vite.config.ts 会优先探测这个仓库内路径。
+      - name: 克隆 OTools 插件 SDK
+        env:
+          OTOOLS_TOKEN: ${{ secrets.OTOOLS_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$OTOOLS_TOKEN" ]; then
+            echo "缺少 secret OTOOLS_REPO_TOKEN（用于克隆私有仓库 ootools/otools-plugin-sdk）" >&2
+            exit 1
+          fi
+          rm -rf vendor/otools-plugin-sdk
+          git clone --depth 1 \
+            "https://x-access-token:${OTOOLS_TOKEN}@github.com/ootools/otools-plugin-sdk.git" \
+            vendor/otools-plugin-sdk
+      - run: pnpm install --frozen-lockfile
+      - name: 发布脚本回归测试
+        run: node --test scripts/*.test.mjs
+      - name: 类型检查并构建前端
+        run: pnpm exec tsc --noEmit && pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-web
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-native:
+    needs: meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: windows
+            out_name: Windows.dll
+          - os: ubuntu-latest
+            artifact_name: linux
+            out_name: Linux.so
+          - os: macos-latest
+            artifact_name: macos-arm64
+            out_name: macOS-arm64.dylib
+          - os: macos-15-intel
+            artifact_name: macos-x86_64
+            out_name: macOS-x86_64.dylib
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+          key: plugin-native-${{ matrix.artifact_name }}
+      - name: 构建 native 库
+        run: cargo build --release -p otools-aigv-native
+      - name: 按宿主约定产出 lib/<平台> 库
+        run: node scripts/sync-native-lib.mjs --profile release --out-name ${{ matrix.out_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-native-${{ matrix.artifact_name }}
+          path: lib/*
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    needs:
+      - meta
+      - build-web
+      - build-native
+    # 用 macOS runner 做最终打包：需要 lipo 把两个 macOS 架构合成通用二进制
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: 下载前端产物
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-web
+          path: dist
+      - name: 下载各平台 native 库
+        uses: actions/download-artifact@v4
+        with:
+          pattern: plugin-native-*
+          merge-multiple: true
+          path: lib
+      - name: 合成 macOS 通用二进制并临时签名
+        shell: bash
+        run: |
+          set -euo pipefail
+          arm_path="lib/macOS-arm64.dylib"
+          intel_path="lib/macOS-x86_64.dylib"
+          universal_path="lib/macOS.dylib"
+          if [[ ! -f "$arm_path" || ! -f "$intel_path" ]]; then
+            echo "缺少 macOS 双架构产物：" >&2
+            find lib -maxdepth 1 -type f -print >&2
+            exit 1
+          fi
+          lipo -create "$arm_path" "$intel_path" -output "$universal_path"
+          codesign --force --sign - --timestamp=none "$universal_path"
+          rm -f "$arm_path" "$intel_path"
+          ls -la lib
+      - name: 打包正式插件并生成摘要
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: node scripts/pack-plugin.mjs --out dist-pack --version "$VERSION"
+      - name: 独立验证插件包
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          PACKID: ${{ needs.meta.outputs.packid }}
+        run: python scripts/verify-plugin.py dist-pack --version "$VERSION" --packid "$PACKID"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oplg
+          path: |
+            dist-pack/*.oplg
+            dist-pack/plugin.json
+            dist-pack/logo.svg
+            dist-pack/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+      - name: 构建摘要
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          PACKID: ${{ needs.meta.outputs.packid }}
+          PUBLISH_ENABLED: ${{ needs.meta.outputs.publish_enabled }}
+        run: |
+          printf '### 插件构建完成\n- 插件：`%s`\n- 版本：`%s`\n- 允许正式发布：`%s`\n\n' "$PACKID" "$VERSION" "$PUBLISH_ENABLED" >> "$GITHUB_STEP_SUMMARY"
+          cat dist-pack/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs:
+      - meta
+      - package
+    if: ${{ needs.meta.outputs.validate_release == 'true' }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - uses: actions/download-artifact@v4
+        with:
+          name: oplg
+          path: release-assets
+      - name: 发布前重新验证产物
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          PACKID: ${{ needs.meta.outputs.packid }}
+        run: python scripts/verify-plugin.py release-assets --version "$VERSION" --packid "$PACKID"
+      - name: 检查市场凭证配置（不发送凭证、不上架）
+        if: ${{ needs.meta.outputs.market_requested == 'true' }}
+        env:
+          AUTH_MODE: ${{ inputs.auth_mode || vars.XYCLOUD_AUTH_MODE || 'pat' }}
+          XYCLOUD_PAT: ${{ secrets.XYCLOUD_PAT }}
+          XYCLOUD_LOGIN_TOKEN: ${{ secrets.XYCLOUD_LOGIN_TOKEN }}
+          OTOOLS_MARKET_TOKEN: ${{ secrets.OTOOLS_MARKET_TOKEN }}
+          XYCLOUD_OIDC_ISSUER: ${{ vars.XYCLOUD_OIDC_ISSUER }}
+          XYCLOUD_PUBLISHER_ID: ${{ vars.XYCLOUD_PUBLISHER_ID }}
+          OTOOLS_MARKET_API: ${{ vars.OTOOLS_MARKET_API || 'https://otools-api.lingyun.net/api/v1/otools/plugin/publish' }}
+        run: node scripts/publish-market.mjs preflight
+      - name: 核验发布标签与构建提交
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: node scripts/release-policy.mjs
+      - name: 发布 GitHub Release
+        if: ${{ needs.meta.outputs.publish_enabled == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.meta.outputs.version }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --target "$COMMIT_SHA" --title "$RELEASE_TAG" --notes "otools-aigv v${RELEASE_VERSION}"
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/*.oplg release-assets/logo.svg release-assets/plugin.json release-assets/SHA256SUMS --clobber
+      # OIDC 获取和使用在同一进程完成，秘密不经过 job outputs 或 artifact。
+      - name: 授权并提交市场
+        if: ${{ needs.meta.outputs.market_enabled == 'true' }}
+        env:
+          AUTH_MODE: ${{ inputs.auth_mode || vars.XYCLOUD_AUTH_MODE || 'pat' }}
+          XYCLOUD_PAT: ${{ secrets.XYCLOUD_PAT }}
+          XYCLOUD_LOGIN_TOKEN: ${{ secrets.XYCLOUD_LOGIN_TOKEN }}
+          OTOOLS_MARKET_TOKEN: ${{ secrets.OTOOLS_MARKET_TOKEN }}
+          XYCLOUD_OIDC_ISSUER: ${{ vars.XYCLOUD_OIDC_ISSUER }}
+          XYCLOUD_OIDC_AUDIENCE: ${{ vars.XYCLOUD_OIDC_AUDIENCE || 'otools-ci' }}
+          XYCLOUD_PUBLISHER_ID: ${{ vars.XYCLOUD_PUBLISHER_ID }}
+          OTOOLS_MARKET_API: ${{ vars.OTOOLS_MARKET_API || 'https://otools-api.lingyun.net/api/v1/otools/plugin/publish' }}
+          RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.meta.outputs.version }}
+          PLUGIN_MANIFEST: release-assets/plugin.json
+        run: node scripts/publish-market.mjs
+      - name: 发布摘要
+        env:
+          PUBLISH_ENABLED: ${{ needs.meta.outputs.publish_enabled }}
+          MARKET_ENABLED: ${{ needs.meta.outputs.market_enabled }}
+          RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
+        run: |
+          printf '### 发布检查完成\n- 正式发布：`%s`\n- 市场提交：`%s`\n- 标签：`%s`\n' "$PUBLISH_ENABLED" "$MARKET_ENABLED" "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"

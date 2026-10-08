@@ -7,7 +7,11 @@
  *   macOS   -> lib/macOS.dylib
  *   Linux   -> lib/Linux.so
  *
- * 用法：node scripts/sync-native-lib.mjs [--profile release|debug]
+ * 用法：node scripts/sync-native-lib.mjs [--profile release|debug] [--out-name macOS-arm64.dylib]
+ *
+ * `--out-name` 用于 CI 的多架构 staging：macOS 上先分别产出
+ * `macOS-arm64.dylib` / `macOS-x86_64.dylib`，再由打包 job 用 lipo 合成
+ * `macOS.dylib`（见 .github/workflows/release-plugin.yml）。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,6 +29,13 @@ const profile = arg('profile', 'release');
 
 /** 宿主约定的目标文件名 */
 const targetLibName = () => {
+  const override = String(arg('out-name', '') || '').trim();
+  if (override) {
+    if (path.basename(override) !== override) {
+      throw new Error(`--out-name 不能包含路径分隔符：${override}`);
+    }
+    return override;
+  }
   if (process.platform === 'win32') return 'Windows.dll';
   if (process.platform === 'darwin') return 'macOS.dylib';
   if (process.platform === 'linux') return 'Linux.so';

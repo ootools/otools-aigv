@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="aigvBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#050810"/>
+    </linearGradient>
+    <linearGradient id="aigvAccent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00f5d4"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#aigvBg)"/>
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="url(#aigvAccent)" stroke-opacity="0.45" stroke-width="1.5"/>
+
+  <!-- 分镜胶片：上下两条齿孔 + 中间画幅 -->
+  <g fill="url(#aigvAccent)" fill-opacity="0.55">
+    <rect x="12" y="15" width="4" height="3" rx="1"/>
+    <rect x="20" y="15" width="4" height="3" rx="1"/>
+    <rect x="28" y="15" width="4" height="3" rx="1"/>
+    <rect x="36" y="15" width="4" height="3" rx="1"/>
+    <rect x="44" y="15" width="4" height="3" rx="1"/>
+    <rect x="12" y="46" width="4" height="3" rx="1"/>
+    <rect x="20" y="46" width="4" height="3" rx="1"/>
+    <rect x="28" y="46" width="4" height="3" rx="1"/>
+    <rect x="36" y="46" width="4" height="3" rx="1"/>
+    <rect x="44" y="46" width="4" height="3" rx="1"/>
+  </g>
+
+  <rect x="10" y="21" width="40" height="22" rx="4" fill="none" stroke="url(#aigvAccent)" stroke-width="2.5"/>
+
+  <!-- 播放三角：漫剧成片 -->
+  <path d="M27 26.5v11l9.5-5.5z" fill="url(#aigvAccent)"/>
+
+  <!-- 底部一笔：AI 推导 -->
+  <path d="M20 55h24" stroke="url(#aigvAccent)" stroke-width="3" stroke-linecap="round" stroke-opacity="0.8"/>
+</svg>

@@ -102,6 +102,10 @@ docs/superpowers/
 .husky/_/
 
 # ---- OTools 插件形态补充 ----
+# OTools 插件 SDK 按需克隆到此（私有仓库，不进版本控制），
+# 让本仓库在 CI / 本地都能独立构建前端。
+vendor/otools-plugin-sdk/
+vendor/tauri-remote-service/
 # native cdylib 的产物按宿主约定落到 lib/<平台>.dll|dylib|so，需要随包分发，
 # 因此 lib/ 本身不忽略，只忽略构建过程留下的备份与调试符号。
 lib/*.bak*
@@ -109,3 +113,7 @@ lib/*.pdb
 lib/*.dSYM
 # 独立开发时生成的打包产物
 dist-pack/
+
+# Python 字节码（verify-plugin.py 本地校验时产生）
+__pycache__/
+*.pyc

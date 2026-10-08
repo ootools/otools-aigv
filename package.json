@@ -23,6 +23,10 @@
     "native:build": "cargo build --release -p otools-aigv-native",
     "native:test": "cargo test -p otools-aigv-native",
     "native:sync": "node scripts/sync-native-lib.mjs",
+    "pack": "node scripts/pack-plugin.mjs --out dist-pack",
+    "verify": "python scripts/verify-plugin.py dist-pack",
+    "test:scripts": "node --test scripts/*.test.mjs",
+    "release:dry": "pnpm build && pnpm native:build && pnpm native:sync && pnpm pack && pnpm verify",
     "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy-to-otools.ps1"
   },
   "dependencies": {
