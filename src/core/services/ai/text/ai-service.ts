@@ -16,11 +16,6 @@
  * 19 个调用方无需修改。
  */
 
-import type { Script } from '@/common/types';
-import { mockStrategy } from '@/core/ai/providers';
-import { getModelById } from '@/core/config/models-config';
-import { LLM_MODELS, DEFAULT_LLM_MODEL, MODEL_RECOMMENDATIONS } from '@/core/constants';
-import { logger } from '@/core/utils/logger';
 
 import { batchGenerate } from './ai-batch';
 import { buildAICacheKey, withAIResponseCache } from './ai-cache';
@@ -40,6 +35,15 @@ import type {
 } from './ai-service-types';
 import { streamGenerateWithFallback } from './ai-stream';
 import { promptBuilderService } from './prompt-builder-service';
+
+import type { Script } from '@/common/types';
+import { mockStrategy } from '@/core/ai/providers';
+import { callTextModel } from '@/core/ai/text-client';
+import { loadModelSettings } from '@/core/config/model-settings';
+import { resolveTextModelRef } from '@/core/config/model-settings/resolver';
+import { getModelById } from '@/core/config/models-config';
+import { LLM_MODELS, DEFAULT_LLM_MODEL, MODEL_RECOMMENDATIONS } from '@/core/constants';
+import { logger } from '@/core/utils/logger';
 
 // Re-export shared types from centralized types file
 export type {
@@ -344,8 +348,31 @@ ${script}
     }
 
     const config = buildRequestConfig(model, settings, prompt);
-    const cacheKey = buildAICacheKey(model.provider, model.id, prompt, settings.temperature);
 
+    // 新架构优先：用户已建立可用的 text 提供方实例 → 走 openai-chat 统一适配器
+    // （一个适配器顶替原 openai/zhipu/alibaba 等多个 OpenAI 兼容 strategy）
+    const modelSettings = await loadModelSettings();
+    const hasTextProvider = modelSettings.providers.some(
+      (p) => p.capability === 'text' && p.enabled && Boolean(p.apiKey)
+    );
+    if (hasTextProvider) {
+      const resolved = resolveTextModelRef(modelSettings);
+      const cacheKey = buildAICacheKey(
+        resolved.provider.id,
+        resolved.modelId || resolved.provider.defaultModel || '',
+        prompt,
+        settings.temperature
+      );
+      return withAIResponseCache(cacheKey, () =>
+        callTextModel(modelSettings, 'text', config.messages, {
+          temperature: config.temperature,
+          maxTokens: config.max_tokens,
+        })
+      );
+    }
+
+    // 回退：旧 registry（非 OpenAI 兼容 / 尚未迁移的场景）
+    const cacheKey = buildAICacheKey(model.provider, model.id, prompt, settings.temperature);
     return withAIResponseCache(cacheKey, () =>
       dispatchAIRequest(model, settings, config, requestId)
     );

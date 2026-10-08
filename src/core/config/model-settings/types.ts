@@ -90,10 +90,10 @@ export interface ProviderInstance {
   createdAt: number;
 }
 
-/** L3 模型引用：不落库为独立实体，只是引用 */
+/** L3 模型引用：不落库为独立实体，只是引用。modelId 可空（空 → 回退 provider.defaultModel） */
 export interface ModelRef {
   providerId: string;
-  modelId: string;
+  modelId?: string;
 }
 
 /** 绑定层：槽位 → 模型分配 */
