@@ -1,5 +1,21 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
+import { webcrypto } from 'node:crypto';
+
+// jsdom 提供 window.crypto 但不提供 crypto.subtle（长期未实现），而视频链路的 JWT-HS256
+// 签名依赖 Web Crypto。仅在 subtle 缺失时注入 node 的 webcrypto，生产代码无需改动。
+if (!globalThis.crypto?.subtle) {
+  const cryptoValue = webcrypto as unknown as Crypto;
+  try {
+    Object.defineProperty(globalThis, 'crypto', {
+      value: cryptoValue,
+      configurable: true,
+      writable: true,
+    });
+  } catch {
+    (globalThis as unknown as { crypto: Crypto }).crypto = cryptoValue;
+  }
+}
 
 function createStorageMock(): Storage {
   let store: Record<string, string> = {};

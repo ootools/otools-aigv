@@ -75,6 +75,13 @@ export interface ProviderInstance {
   extraHeaders?: Record<string, string>; // 中转站常要的自定义头
   queryParams?: Record<string, string>; // 少数服务商走 query 传参
 
+  // 鉴权扩展（vendor-task 的 jwt-hs256 等需要 ak/sk）
+  accessKey?: string; // jwt-hs256 的 access key（如可灵）
+  secretKey?: string; // jwt-hs256 的 secret key
+
+  // 声明式适配器（protocol === 'vendor-task' 时引用内置描述符）
+  vendorDescriptorId?: string; // 内置描述符注册表 key（如 'kling-official'）
+
   // 模型
   modelSource: 'auto' | 'manual'; // auto = 调 /models 拉取
   manualModels?: string[];
