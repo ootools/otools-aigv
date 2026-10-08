@@ -1,0 +1,33 @@
+{
+  "devUrl": "http://127.0.0.1:6481",
+  "developerName": "jry",
+  "displayName": "Novella Studio",
+  "displayNameCN": "AI 漫剧创作",
+  "entry": "dist/index.html",
+  "quickDev": true,
+  "hasAd": false,
+  "icon": "🎬",
+  "inPluginPurchase": false,
+  "key": [
+    "novella",
+    "ai 漫剧",
+    "漫剧创作",
+    "动画短剧",
+    "分镜",
+    "storyboard",
+    "multi-agent",
+    "视频生成",
+    "aigv"
+  ],
+  "native": {
+    "enabled": true,
+    "libDir": "lib",
+    "autoReload": true
+  },
+  "openInBrowser": false,
+  "packid": "otools-aigv",
+  "screenshots": [],
+  "summary": "Novella（AI 漫剧 / 动画短剧 Multi-Agent 创作平台）的 OTools 插件版：剧本与小说素材解析、角色锁脸、分镜运镜规划、配音与 GPU 硬件加速压制。",
+  "uuid": "otools-aigv",
+  "version": "0.1.0"
+}

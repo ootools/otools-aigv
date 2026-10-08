@@ -1,0 +1,654 @@
+@import 'tailwindcss';
+@import '../common/styles/cyberpunk-theme.css';
+
+/* ============================================
+   Cyberpunk Neon Dark — Design Token System
+   Primary: Cyan #00f5d4 / Electric #00e5ff
+   Secondary: Purple #b44fff
+   Accent: Hot Pink #ff2d78
+   ============================================ */
+
+:root {
+  /* ── Neon Color Palette ── */
+  --neon-cyan: #00f5d4;
+  --neon-cyan-dim: rgba(0, 245, 212, 0.6);
+  --neon-cyan-glow:
+    0 0 8px rgba(0, 245, 212, 0.8), 0 0 24px rgba(0, 245, 212, 0.4), 0 0 60px rgba(0, 245, 212, 0.2);
+  --neon-cyan-glow-sm: 0 0 6px rgba(0, 245, 212, 0.7), 0 0 18px rgba(0, 245, 212, 0.3);
+  --neon-cyan-border: rgba(0, 245, 212, 0.5);
+  --neon-cyan-bg: rgba(0, 245, 212, 0.06);
+
+  --neon-purple: #b44fff;
+  --neon-purple-dim: rgba(180, 79, 255, 0.6);
+  --neon-purple-glow:
+    0 0 8px rgba(180, 79, 255, 0.8), 0 0 24px rgba(180, 79, 255, 0.4),
+    0 0 60px rgba(180, 79, 255, 0.2);
+  --neon-purple-glow-sm: 0 0 6px rgba(180, 79, 255, 0.7), 0 0 18px rgba(180, 79, 255, 0.3);
+  --neon-purple-border: rgba(180, 79, 255, 0.5);
+  --neon-purple-bg: rgba(180, 79, 255, 0.06);
+
+  --neon-pink: #ff2d78;
+  --neon-pink-dim: rgba(255, 45, 120, 0.6);
+  --neon-pink-glow:
+    0 0 8px rgba(255, 45, 120, 0.8), 0 0 24px rgba(255, 45, 120, 0.4),
+    0 0 60px rgba(255, 45, 120, 0.2);
+  --neon-pink-glow-sm: 0 0 6px rgba(255, 45, 120, 0.7), 0 0 18px rgba(255, 45, 120, 0.3);
+  --neon-pink-border: rgba(255, 45, 120, 0.5);
+  --neon-pink-bg: rgba(255, 45, 120, 0.06);
+
+  --neon-green: #00ff88;
+  --neon-green-glow: 0 0 8px rgba(0, 255, 136, 0.8), 0 0 24px rgba(0, 255, 136, 0.4);
+  --neon-green-border: rgba(0, 255, 136, 0.5);
+  --neon-green-bg: rgba(0, 255, 136, 0.06);
+
+  /* ── Modern Minimalist Base Backgrounds (Vercel / Linear Style) ── */
+  --bg-base: #09090b;
+  --bg-card: #121215;
+  --bg-glass: rgba(18, 18, 21, 0.8);
+  --bg-glass-hover: rgba(255, 255, 255, 0.04);
+  --bg-surface: #18181b;
+  --bg-surface-2: #27272a;
+
+  /* ── Theme Tokens ── */
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --card: #121215;
+  --card-foreground: #f4f4f5;
+  --popover: #18181b;
+  --popover-foreground: #f4f4f5;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --accent: rgba(255, 255, 255, 0.05);
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #18181b;
+  --ring: #6366f1;
+  --radius: 12px;
+
+  /* ── Legacy Color Aliases (for compatibility) ── */
+  --color-primary: #00f5d4;
+  --color-primary-hover: #00e5c4;
+  --color-primary-active: #00c9ac;
+  --color-primary-light: rgba(0, 245, 212, 0.12);
+  --color-primary-glow: rgba(0, 245, 212, 0.35);
+
+  --color-success: #00ff88;
+  --color-success-light: rgba(0, 255, 136, 0.12);
+  --color-warning: #ffb800;
+  --color-warning-light: rgba(255, 184, 0, 0.12);
+  --color-error: #ff2d78;
+  --color-error-light: rgba(255, 45, 120, 0.12);
+  --color-info: #00e5ff;
+  --color-info-light: rgba(0, 229, 255, 0.12);
+
+  /* ── Border Radius ── */
+  --radius-sm: 6px;
+  --radius-base: 8px;
+  --radius-default: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* ── Spacing ── */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-base: 16px;
+  --spacing-lg: 20px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-3xl: 48px;
+
+  /* ── Transitions ── */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Layout ── */
+  --header-height: 56px;
+  --dock-width: 56px;
+  --dock-expanded-width: 180px;
+  --statusbar-height: 28px;
+  --content-max-width: 1280px;
+  --container-padding: 24px;
+
+  /* ── Glassmorphism ── */
+  --glass-bg: rgba(5, 12, 26, 0.8);
+  --glass-border: rgba(0, 245, 212, 0.18);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(0, 245, 212, 0.08);
+
+  /* ── Shadows ── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-base: 0 4px 12px rgba(0, 0, 0, 0.7), 0 2px 4px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.8), 0 8px 16px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.9), 0 12px 24px rgba(0, 0, 0, 0.8);
+  --shadow-card:
+    0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: var(--neon-cyan-glow);
+  --shadow-glow-lg: 0 0 40px rgba(0, 245, 212, 0.35);
+}
+
+/* ============================================
+   Light theme (minimal override, keeps dark spirit)
+   ============================================ */
+.light-theme,
+.light,
+:root.light,
+html.light {
+  --background: #f0f9ff;
+  --foreground: #050810;
+  --card: rgba(255, 255, 255, 0.95);
+  --card-foreground: #050810;
+  --popover: #ffffff;
+  --popover-foreground: #050810;
+  --primary: #0069c0;
+  --primary-foreground: #ffffff;
+  --secondary: #7c3aed;
+  --secondary-foreground: #ffffff;
+  --muted: #e8f4f8;
+  --muted-foreground: #475569;
+  --accent: rgba(0, 105, 192, 0.1);
+  --accent-foreground: #0069c0;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 105, 192, 0.2);
+  --input: #e8f4f8;
+  --ring: #0069c0;
+  --color-primary: #0069c0;
+  --neon-cyan: #0069c0;
+  --neon-cyan-border: rgba(0, 105, 192, 0.4);
+  --neon-cyan-bg: rgba(0, 105, 192, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(0, 105, 192, 0.2);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --bg-base: #f0f9ff;
+  --bg-card: rgba(255, 255, 255, 0.95);
+}
+
+/* Dark explicit overrides */
+.dark-theme,
+.dark,
+:root.dark,
+html.dark {
+  --background: #050810;
+  --foreground: rgba(224, 245, 248, 0.95);
+  --primary: #00f5d4;
+  --primary-foreground: #050810;
+}
+
+/* ============================================
+   Keyframe Animations
+   ============================================ */
+
+/* Neon breathing glow */
+@keyframes neonPulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.75;
+    filter: brightness(0.85);
+  }
+}
+
+/* Neon border pulse */
+@keyframes neonBorderPulse {
+  0%,
+  100% {
+    box-shadow: var(--neon-cyan-glow-sm);
+  }
+  50% {
+    box-shadow: var(--neon-cyan-glow);
+  }
+}
+
+/* Scan line sweep (single pass on entry) */
+@keyframes scanLine {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(200%);
+    opacity: 0;
+  }
+}
+
+/* Particle float up */
+@keyframes particleFloat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-120px) scale(0.3);
+    opacity: 0;
+  }
+}
+
+/* Glitch text effect */
+@keyframes glitchText {
+  0%,
+  90%,
+  100% {
+    transform: translate(0);
+    text-shadow: none;
+  }
+  92% {
+    transform: translate(-2px, 1px);
+    text-shadow:
+      2px 0 var(--neon-pink),
+      -2px 0 var(--neon-cyan);
+  }
+  94% {
+    transform: translate(2px, -1px);
+    text-shadow:
+      -2px 0 var(--neon-purple),
+      2px 0 var(--neon-pink);
+  }
+  96% {
+    transform: translate(-1px, 2px);
+    text-shadow:
+      1px 0 var(--neon-cyan),
+      -1px 0 var(--neon-purple);
+  }
+  98% {
+    transform: translate(0);
+    text-shadow: none;
+  }
+}
+
+/* Flow light along a line */
+@keyframes neonFlowLine {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Fade up entry */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUpIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dock expand */
+@keyframes dockLabelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Motion utility classes */
+.m-fade-in {
+  animation: fadeIn 0.3s cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+.m-slide-up-in {
+  animation: slideUpIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.m-slide-down-in {
+  animation: slideDownIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.m-zoom-in {
+  animation: zoomIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.m-neon-pulse {
+  animation: neonPulse 2.5s ease-in-out infinite;
+}
+
+.m-glitch {
+  animation: glitchText 6s ease-in-out infinite;
+}
+
+.m-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.m-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ============================================
+   Global Styles
+   ============================================ */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+html, body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+  scroll-behavior: smooth;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Eliminate Tacky Cyan / Blue Focus Rings Globally ── */
+*:focus,
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25) !important;
+  border-color: rgba(99, 102, 241, 0.8) !important;
+}
+
+::selection {
+  background-color: rgba(99, 102, 241, 0.25);
+  color: #ffffff;
+}
+
+/* Scrollbar styling — cyberpunk thin */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 212, 0.3);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 245, 212, 0.6);
+}
+
+/* ============================================
+   Reduced Motion Support
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .m-neon-pulse,
+  .m-glitch,
+  .m-pulse,
+  .m-spin {
+    animation: none !important;
+  }
+}
+
+/* ============================================
+   Cyberpunk Utility Classes
+   ============================================ */
+
+/* Neon text glow */
+.neon-text-cyan {
+  color: var(--neon-cyan);
+  text-shadow:
+    0 0 10px rgba(0, 245, 212, 0.8),
+    0 0 30px rgba(0, 245, 212, 0.4);
+}
+
+.neon-text-purple {
+  color: var(--neon-purple);
+  text-shadow:
+    0 0 10px rgba(180, 79, 255, 0.8),
+    0 0 30px rgba(180, 79, 255, 0.4);
+}
+
+.neon-text-pink {
+  color: var(--neon-pink);
+  text-shadow:
+    0 0 10px rgba(255, 45, 120, 0.8),
+    0 0 30px rgba(255, 45, 120, 0.4);
+}
+
+/* Gradient text */
+.gradient-text-cyber {
+  background: linear-gradient(
+    135deg,
+    var(--neon-cyan) 0%,
+    var(--neon-purple) 60%,
+    var(--neon-pink) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Ultra-Premium Studio Styling Tokens (Matching the new luxury AI Creative Studio design) */
+.studio-bg-dark {
+  background-color: #080c14;
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 40%);
+}
+
+.studio-card {
+  background: rgba(14, 21, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.studio-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 24px rgba(99, 102, 241, 0.2);
+  transform: translateY(-2px);
+}
+
+.studio-btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: #ffffff;
+  border-radius: 14px;
+  font-weight: 700;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.studio-btn-primary:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.5);
+  transform: scale(1.02);
+}
+
+/* Light mode luxury crystal overrides & high-contrast text rules */
+html.light, html.light-theme {
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+  --accent: rgba(0, 0, 0, 0.05);
+  --accent-foreground: #09090b;
+  --border: rgba(0, 0, 0, 0.12);
+  --input: #ffffff;
+}
+
+html.light .studio-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+html.light .studio-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 16px 40px rgba(99, 102, 241, 0.1);
+}
+
+/* Light Mode Hardcoded Text Contrast Safeguards */
+html.light .text-zinc-100,
+html.light .text-zinc-200,
+html.light .text-zinc-300,
+html.light .text-slate-100,
+html.light .text-slate-200,
+html.light .text-slate-300 {
+  color: #09090b !important;
+}
+
+html.light .text-zinc-400,
+html.light .text-zinc-500,
+html.light .text-slate-400,
+html.light .text-slate-500 {
+  color: #52525b !important;
+}
+
+html.light .bg-white\/5,
+html.light .bg-white\/10,
+html.light .bg-black\/30,
+html.light .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+html.light .border-white\/10,
+html.light .border-white\/20 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Light mode dialogs & inputs adapt cleanly */
+html.light [role="dialog"],
+html.light [data-radix-portal] [role="dialog"] {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+}
+
+html.light input,
+html.light textarea,
+html.light select {
+  color: #09090b !important;
+}
+
+/* Global Focus Outline & Border Highlight Elimination */
+input, textarea, select, [role="textbox"] {
+  outline: none !important;
+}
+
+input:focus, input:focus-visible, input:focus-within, input:active,
+textarea:focus, textarea:focus-visible, textarea:focus-within, textarea:active,
+select:focus, select:focus-visible, select:active,
+.focus-within\:border-indigo-500:focus-within,
+.focus\:border-indigo-500:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  ring: 0 !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-shadow: none !important;
+  border-color: var(--border, rgba(255, 255, 255, 0.12)) !important;
+}
+
+

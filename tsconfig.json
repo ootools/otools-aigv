@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "rootDir": ".",
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@novella/core": ["./packages/core/src"],
+      "@novella/core/*": ["./packages/core/src/*"],
+      "@novella/ai-engine": ["./packages/ai-engine/src"],
+      "@novella/ai-engine/*": ["./packages/ai-engine/src/*"],
+      "@novella/storyboard": ["./packages/storyboard/src"],
+      "@novella/storyboard/*": ["./packages/storyboard/src/*"],
+      "@novella/audio-studio": ["./packages/audio-studio/src"],
+      "@novella/audio-studio/*": ["./packages/audio-studio/src/*"],
+      "@novella/render-pipeline": ["./packages/render-pipeline/src"],
+      "@novella/render-pipeline/*": ["./packages/render-pipeline/src/*"],
+      "@novella/ui": ["./packages/ui/src"],
+      "@novella/ui/*": ["./packages/ui/src/*"]
+    }
+  },
+  "include": ["src", "packages/*/src/**/*"],
+  "exclude": ["src/__tests__/**", "src/__mocks__/**", "src/**/__tests__/**"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

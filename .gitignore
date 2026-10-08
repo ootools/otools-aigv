@@ -1,0 +1,111 @@
+node_modules
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.test.local
+package-lock.json
+yarn.lock
+*.lock
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+.claude
+
+# Build outputs
+dist/
+docs-site/
+
+# Rust build
+target/
+**/target/
+
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Playwright test results (auto-generated failure reports)
+test-results/
+playwright-report/
+.playwright/
+
+# Jest cache
+.jest-cache/
+
+# TypeScript incremental build cache
+.tsbuildinfo/
+
+# Hermes (agent memory and plans)
+.hermes/
+
+# Reform plans (internal planning docs)
+REFORM_PLAN*.md
+
+# Temporary files
+*.tmp
+*.temp
+
+docs/ui-redesign/
+
+# Code quality reports (auto-generated)
+report/
+jscpd-report/
+jscpd-report.json
+
+# Editor/IDE backup leftovers
+*.orig
+*.bak
+*~
+
+PIPELINE_DESIGN.md
+PanelFlow-plan/
+AS_ANY_AUDIT.md
+N8N_REMOVAL_REPORT.md
+REPORT.md
+docs/.vitepress/cache/
+.tsbuildinfo
+
+# Local demo assets (kept off repo per user pref 2026-06-06)
+demo/
+
+# Internal dev reference docs (kept off repo per user pref 2026-06-10)
+# 主人偏好: 内部参考文档（refactor plan / 收官战报 / 基线快照）不提交到 GitHub
+docs/dev/
+docs/refactor-plan.md
+docs/baseline.md
+
+# Session-local artifacts (IDE/agent temp files)
+.zcode/plans/
+.superpowers/sdd/
+.workbuddy/memory/
+
+# Generated code quality reports
+reports/jscpd/
+
+# Agent session artifacts (never commit)
+docs/superpowers/
+.superpowers/
+.zcode/plans/
+.husky/_/
+
+# ---- OTools 插件形态补充 ----
+# native cdylib 的产物按宿主约定落到 lib/<平台>.dll|dylib|so，需要随包分发，
+# 因此 lib/ 本身不忽略，只忽略构建过程留下的备份与调试符号。
+lib/*.bak*
+lib/*.pdb
+lib/*.dSYM
+# 独立开发时生成的打包产物
+dist-pack/

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark dark-theme" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- 相对路径：插件由宿主以 file:// 方式加载 dist/index.html（vite base: './'） -->
+    <link rel="icon" type="image/jpeg" href="./novella_brand_logo.jpg" />
+    <link rel="apple-touch-icon" href="./novella_brand_logo.jpg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#050810" />
+    <meta
+      name="description"
+      content="Novella（AI 漫剧 / 动画短剧 Multi-Agent 创作平台）的 OTools 插件版。"
+    />
+    <meta
+      name="keywords"
+      content="novella, AI漫剧, 漫剧创作, OTools 插件, 多模型AI, 分镜设计, 角色一致性, TTS, FFmpeg"
+    />
+    <meta name="author" content="Agions" />
+
+    <title>Novella · AI 漫剧创作</title>
+
+    <!-- 原生开屏 Splash 样式（防止 JS 加载期间出现长白屏） -->
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #050810;
+        color: #e0f5f8;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        overflow: hidden;
+      }
+      .app-splash-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+        background: radial-gradient(ellipse at 50% 30%, rgba(0, 245, 212, 0.12) 0%, rgba(5, 8, 16, 0.98) 70%);
+      }
+      .app-splash-logo-wrap {
+        position: relative;
+        margin-bottom: 1.5rem;
+      }
+      .app-splash-logo {
+        width: 72px;
+        height: 72px;
+        border-radius: 16px;
+        border: 1.5px solid rgba(0, 245, 212, 0.5);
+        box-shadow: 0 0 24px rgba(0, 245, 212, 0.3), 0 0 50px rgba(0, 245, 212, 0.15);
+      }
+      .app-splash-spinner {
+        width: 36px;
+        height: 36px;
+        border: 3px solid rgba(0, 245, 212, 0.15);
+        border-top-color: #00f5d4;
+        border-radius: 50%;
+        animation: splashSpin 0.8s linear infinite;
+        margin-bottom: 1rem;
+      }
+      .app-splash-text {
+        font-size: 14px;
+        font-weight: 600;
+        color: #00f5d4;
+        letter-spacing: 0.05em;
+        text-shadow: 0 0 10px rgba(0, 245, 212, 0.5);
+      }
+      .app-splash-sub {
+        font-size: 11px;
+        color: rgba(148, 180, 194, 0.6);
+        margin-top: 6px;
+      }
+      @keyframes splashSpin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- 动态首屏 Splash Loader：React 挂载前立即呈现开屏，避免白屏 -->
+      <div class="app-splash-container">
+        <div class="app-splash-logo-wrap">
+          <img src="./novella_brand_logo.jpg" alt="Novella Logo" class="app-splash-logo" />
+        </div>
+        <div class="app-splash-spinner"></div>
+        <div class="app-splash-text">Novella · AI 漫剧创作 · 启动中...</div>
+        <div class="app-splash-sub">OTools 插件运行时 · Rust 引擎与 React 组件初始化</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+[package]
+name = "otools-aigv-native"
+version = "0.1.0"
+edition = "2021"
+description = "OTools aigv native 插件后端（复刻自 Agions/novella，Tauri command → OTools dispatch）"
+license = "MIT"
+repository = "https://github.com/ootools/otools-aigv"
+
+[lib]
+name = "otools_aigv_native"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+novella-core = { path = "../crates/core" }
+novella-ai = { path = "../crates/ai" }
+novella-media = { path = "../crates/media" }
+novella-plugin = { path = "../crates/plugin" }
+novella-updater = { path = "../crates/updater" }
+novella-ipc = { path = "../crates/ipc" }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+env_logger = "0.10"
+lazy_static = "1.4"
+regex = "1"
+dirs = "5.0"
+
+[features]
+default = []
+# 供未来的「插件独立打包 APP」薄壳以 rlib 形式内嵌复用
+embed = []

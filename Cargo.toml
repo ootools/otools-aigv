@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "native",
+    "crates/core",
+    "crates/ai",
+    "crates/media",
+    "crates/plugin",
+    "crates/updater",
+    "crates/ipc",
+]
+resolver = "2"
+
+[profile.release]
+# 必须用 unwind：native 插件的 `otools_plugin_invoke` 是 extern "C" 边界，
+# panic 无法跨 DLL unwind，会走 panic_cannot_unwind → abort()，整个宿主被杀
+# （表现为 0xC000001D @ ud2+__fastfail）。
+# 插件靠 native/src/ffi_guard.rs 在边界内 catch_unwind 把 panic 转成普通错误响应，
+# 依赖的正是这个设置。上游 Novella 用的 panic = "abort" 在插件形态下会直接崩宿主。
+panic = "unwind"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = "debuginfo"

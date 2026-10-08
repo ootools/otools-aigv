@@ -1,0 +1,10 @@
+packages:
+  - '.'
+  - 'packages/*'
+
+# 本机 node 无法派生子进程（spawnSync 一律 EBUSY），esbuild 的 postinstall
+# 会执行 `node esbuild --version` 做版本自检而失败——跳过它。
+# esbuild 真正的二进制来自可选依赖 @esbuild/<platform>，不依赖这个脚本。
+# 上游写的是 "set this to true or false" 占位符，不是合法配置，已替换。
+onlyBuiltDependencies:
+  - unrs-resolver
