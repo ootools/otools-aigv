@@ -4,6 +4,9 @@
 
 import type { ProjectBlackboard, BlackboardData } from './ProjectBlackboard';
 
+import type { SlotId } from '@/core/config/model-settings/types';
+
+
 export type AgentRoleType =
   | 'director'
   | 'script_ingestion'
@@ -12,6 +15,20 @@ export type AgentRoleType =
   | 'sound_engineer'
   | 'video_editor'
   | 'custom';
+
+/**
+ * 内置角色 → 默认槽位（P5：MasterDirector 按槽位解析提供方）。
+ * 用户可在 AgentMetadata.slot 上覆盖；custom 默认归 util.fast（便宜小模型）。
+ */
+export const ROLE_TO_SLOT: Record<AgentRoleType, SlotId | undefined> = {
+  director: undefined,
+  script_ingestion: 'script.ingest',
+  character_designer: 'character.design',
+  storyboard_artist: 'storyboard.plan',
+  sound_engineer: 'audio.tts',
+  video_editor: 'video.generate',
+  custom: 'util.fast',
+};
 
 export type TriggerPhase =
   | 'on_input_submitted'
@@ -33,6 +50,8 @@ export interface AgentMetadata {
   writeKeys: Array<keyof BlackboardData>;
   isCustom?: boolean;
   enabled?: boolean;
+  /** P5：该 Agent 负责的流程环节槽位；缺省按 ROLE_TO_SLOT 推断 */
+  slot?: SlotId;
 }
 
 export abstract class BaseAgent {

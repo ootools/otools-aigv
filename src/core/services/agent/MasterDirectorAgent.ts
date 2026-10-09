@@ -7,11 +7,14 @@
  * 协同完成从原始输入到 4K 漫剧全流程推导与构建。
  */
 
-import { pluginRegistry } from '@/core/plugins/PluginRegistry';
+
 
 import { agentRegistry } from './AgentRegistry';
-import { BaseAgent } from './BaseAgent';
+import { BaseAgent, ROLE_TO_SLOT } from './BaseAgent';
 import { ProjectBlackboard, type InputContentType } from './ProjectBlackboard';
+
+import { getModelSettings, resolveSlotModelSafe } from '@/core/ai/runtime/model-runtime';
+import { pluginRegistry } from '@/core/plugins/PluginRegistry';
 
 export class MasterDirectorAgent extends BaseAgent {
   private blackboard: ProjectBlackboard;
@@ -100,8 +103,36 @@ export class MasterDirectorAgent extends BaseAgent {
     }
   }
 
+  /**
+   * P5：调度前按槽位解析出「实际会使用哪家提供方 / 哪个模型」并打日志，
+   * 满足「换 provider 后日志里能看到实际调用的是哪家」的验收标准。
+   * 解析失败（该 slot 没配可用提供方）只告警、不阻断，沿用旧链路默认行为。
+   */
+  private resolveAndLogAgentModel(agent: BaseAgent): void {
+    const slot = agent.metadata.slot ?? ROLE_TO_SLOT[agent.metadata.role];
+    if (!slot) {
+      // 导演自身不占槽位，无需解析
+      return;
+    }
+    const resolved = resolveSlotModelSafe(getModelSettings(), slot);
+    if (resolved) {
+      this.log(
+        this.blackboard,
+        `🧭 ${agent.metadata.name} 槽位调度 [${slot}] → 提供方「${resolved.provider.label}」/ 模型「${resolved.modelId || '<默认模型>'}」（能力 ${resolved.capability}）`,
+        'success'
+      );
+    } else {
+      this.log(
+        this.blackboard,
+        `⚠️ ${agent.metadata.name} 槽位 [${slot}] 未解析到可用提供方，将走旧链路默认行为`,
+        'warn'
+      );
+    }
+  }
+
   /** 带自动重试与纠错 Loop 的 Agent 执行器 */
   private async executeAgentWithRetry(agent: BaseAgent, maxRetries: number = 2): Promise<void> {
+    this.resolveAndLogAgentModel(agent);
     let attempt = 0;
     while (attempt <= maxRetries) {
       try {
@@ -129,6 +160,7 @@ export class MasterDirectorAgent extends BaseAgent {
   private async executeCustomAgents(phase: string, agents: BaseAgent[]) {
     const matchingCustom = agents.filter((a) => a.metadata.isCustom && a.metadata.triggerPhase === phase);
     for (const ca of matchingCustom) {
+      this.resolveAndLogAgentModel(ca);
       this.log(this.blackboard, `调度自定义 Agent: ${ca.metadata.name} [Phase: ${phase}]`, 'info');
       try {
         await ca.execute(this.blackboard);

@@ -38,9 +38,11 @@ import { promptBuilderService } from './prompt-builder-service';
 
 import type { Script } from '@/common/types';
 import { mockStrategy } from '@/core/ai/providers';
+import { resolveSlotModelSafe } from '@/core/ai/runtime/model-runtime';
 import { callTextModel } from '@/core/ai/text-client';
 import { loadModelSettings } from '@/core/config/model-settings';
 import { resolveTextModelRef } from '@/core/config/model-settings/resolver';
+import type { Capability, ProviderInstance, SlotId } from '@/core/config/model-settings/types';
 import { getModelById } from '@/core/config/models-config';
 import { LLM_MODELS, DEFAULT_LLM_MODEL, MODEL_RECOMMENDATIONS } from '@/core/constants';
 import { logger } from '@/core/utils/logger';
@@ -88,6 +90,7 @@ class AIService {
     options: {
       model: string;
       provider: string;
+      slot?: SlotId;
       signal?: AbortSignal;
       temperature?: number;
       max_tokens?: number;
@@ -113,7 +116,7 @@ class AIService {
     const settings = this.buildDefaultSettings(model, options);
 
     try {
-      const response = await this.callAPI(model, settings, prompt);
+      const response = await this.callAPI(model, settings, prompt, undefined, options.slot);
       return response.content;
     } catch (error) {
       logger.error('AI generate failed:', error);
@@ -281,6 +284,7 @@ ${script}
     options: {
       model: string;
       provider: string;
+      slot?: SlotId;
       signal?: AbortSignal;
       temperature?: number;
       max_tokens?: number;
@@ -303,6 +307,7 @@ ${script}
     options: {
       model: string;
       provider: string;
+      slot?: SlotId;
       temperature?: number;
       max_tokens?: number;
       concurrency?: number;
@@ -326,7 +331,8 @@ ${script}
     model: AIModel,
     settings: AIModelSettings,
     prompt: string,
-    requestId?: string
+    requestId?: string,
+    slot?: SlotId
   ): Promise<AIResponse> {
     if (this.useMock) {
       return mockStrategy.call(
@@ -349,17 +355,32 @@ ${script}
 
     const config = buildRequestConfig(model, settings, prompt);
 
-    // 新架构优先：用户已建立可用的 text 提供方实例 → 走 openai-chat 统一适配器
-    // （一个适配器顶替原 openai/zhipu/alibaba 等多个 OpenAI 兼容 strategy）
+    // P5：按槽位解析（capabilityForSlot + resolveModelRef）→ 走 text 统一客户端；
+    // 未给槽位或槽位未解析时回退到「能力级」新架构；都没有可用新提供方时走旧链路。
     const modelSettings = await loadModelSettings();
-    const hasTextProvider = modelSettings.providers.some(
-      (p) => p.capability === 'text' && p.enabled && Boolean(p.apiKey)
-    );
-    if (hasTextProvider) {
-      const resolved = resolveTextModelRef(modelSettings);
+
+    let newArch: { provider: ProviderInstance; modelId: string; capability: Capability } | null = null;
+    if (slot) {
+      const resolved = resolveSlotModelSafe(modelSettings, slot);
+      if (resolved) {
+        newArch = { provider: resolved.provider, modelId: resolved.modelId, capability: resolved.capability };
+      }
+    }
+    if (!newArch) {
+      const hasTextProvider = modelSettings.providers.some(
+        (p) => p.capability === 'text' && p.enabled && Boolean(p.apiKey)
+      );
+      if (hasTextProvider) {
+        const resolved = resolveTextModelRef(modelSettings);
+        newArch = { provider: resolved.provider, modelId: resolved.modelId, capability: 'text' };
+      }
+    }
+
+    // 仅文本能力在核心打通阶段走新客户端（图像/语音/视频旧链路暂不接管）
+    if (newArch?.capability === 'text') {
       const cacheKey = buildAICacheKey(
-        resolved.provider.id,
-        resolved.modelId || resolved.provider.defaultModel || '',
+        newArch.provider.id,
+        newArch.modelId || newArch.provider.defaultModel || '',
         prompt,
         settings.temperature
       );
@@ -367,11 +388,12 @@ ${script}
         callTextModel(modelSettings, 'text', config.messages, {
           temperature: config.temperature,
           maxTokens: config.max_tokens,
+          slot,
         })
       );
     }
 
-    // 回退：旧 registry（非 OpenAI 兼容 / 尚未迁移的场景）
+    // 回退：旧 registry（非 OpenAI 兼容 / 尚未迁移 / 非文本能力场景）
     const cacheKey = buildAICacheKey(model.provider, model.id, prompt, settings.temperature);
     return withAIResponseCache(cacheKey, () =>
       dispatchAIRequest(model, settings, config, requestId)

@@ -29,7 +29,7 @@ export async function callAiAndParseJson<T = unknown>(
   failureMessage: string
 ): Promise<T> {
   const { provider = 'alibaba', model = 'qwen-3.5' } = options;
-  const aiResponse = await aiService.generate(prompt, { provider, model });
+  const aiResponse = await aiService.generate(prompt, { provider, model, slot: 'script.ingest' });
 
   try {
     return JSON.parse(aiResponse) as T;

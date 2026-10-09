@@ -7,13 +7,14 @@
 
 import { v4 as uuidv4 } from 'uuid';
 
+import { generateFromText } from './generators';
+import type { SubtitleItem, SubtitleStyle, SubtitleTimeframe, SubtitleTrack } from './types';
+import { DEFAULT_SUBTITLE_STYLE } from './types';
+
 import { formatTime } from '@/common/utils';
 import { aiService } from '@/core/services/ai/text/ai-service';
 import { logger } from '@/core/utils/logger';
 
-import { generateFromText } from './generators';
-import type { SubtitleItem, SubtitleStyle, SubtitleTimeframe, SubtitleTrack } from './types';
-import { DEFAULT_SUBTITLE_STYLE } from './types';
 
 /** 默认每个字幕片段时长（秒） */
 const DEFAULT_AVG_DURATION_SECONDS = 4;
@@ -83,6 +84,7 @@ ${videoText}
     const result = await aiService.generate(prompt, {
       model: 'gpt-3.5-turbo',
       provider: 'openai',
+      slot: 'util.fast',
     });
 
     const timeframes = parseAIGeneratedSubtitles(result, duration);
@@ -121,6 +123,7 @@ ${item.text}
       const translated = await aiService.generate(prompt, {
         model: 'gpt-3.5-turbo',
         provider: 'openai',
+        slot: 'util.fast',
       });
 
       translatedItems.push({

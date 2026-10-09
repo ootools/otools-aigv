@@ -8,7 +8,6 @@
  * P1 只管读写与「空」判定；迁移见 migration.ts，业务读取见 index.ts。
  */
 
-import { detectTauriEnvironment } from '@/core/services/project/secure-storage-service';
 
 import {
   LocalStorageBackend,
@@ -21,10 +20,20 @@ import {
   type ModelSettings,
 } from './types';
 
+import { detectTauriEnvironment } from '@/core/services/project/secure-storage-service';
+
 /** 落盘文件名（OtoolsStoreBackend 用；对应 ~/.otools/local/aigv/model-settings.json） */
 const STORE_FILE = 'model-settings.json';
 
 let backend: SettingsBackend | null = null;
+
+/** 最近一次加载/写入的配置（同步读取用，供 Agent / 服务在运行时按槽位解析） */
+let currentSettings: ModelSettings | null = null;
+
+/** 同步获取最近一次加载/写入的模型配置（未加载过返回 null） */
+export function getModelSettings(): ModelSettings | null {
+  return currentSettings;
+}
 
 /** 选择/返回当前后端（带缓存） */
 export function getModelSettingsBackend(): SettingsBackend {
@@ -65,24 +74,34 @@ const isUsableSettings = (value: unknown): value is ModelSettings => {
 /** 读取模型配置；缺失或解析失败 → 空配置 */
 export async function loadModelSettings(): Promise<ModelSettings> {
   const raw = await getModelSettingsBackend().load();
-  if (!raw) return emptyModelSettings();
+  if (!raw) {
+    currentSettings = emptyModelSettings();
+    return currentSettings;
+  }
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (!isUsableSettings(parsed)) return emptyModelSettings();
-    return { ...emptyModelSettings(), ...parsed, schemaVersion: MODEL_SETTINGS_SCHEMA_VERSION };
+    if (!isUsableSettings(parsed)) {
+      currentSettings = emptyModelSettings();
+      return currentSettings;
+    }
+    currentSettings = { ...emptyModelSettings(), ...parsed, schemaVersion: MODEL_SETTINGS_SCHEMA_VERSION };
+    return currentSettings;
   } catch {
-    return emptyModelSettings();
+    currentSettings = emptyModelSettings();
+    return currentSettings;
   }
 }
 
 /** 写入模型配置（强制带上当前 schemaVersion） */
 export async function saveModelSettings(settings: ModelSettings): Promise<void> {
   const next: ModelSettings = { ...settings, schemaVersion: MODEL_SETTINGS_SCHEMA_VERSION };
+  currentSettings = next;
   await getModelSettingsBackend().save(JSON.stringify(next));
 }
 
 /** 清空模型配置 */
 export async function clearModelSettings(): Promise<void> {
+  currentSettings = emptyModelSettings();
   await getModelSettingsBackend().clear();
 }

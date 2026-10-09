@@ -13,11 +13,12 @@
  *   在"成功时返回什么、失败时返回什么"。
  */
 
+import type { ResolvedAnalyzeConfig } from './novel-analyze-config';
+
 import type { NovelMetadata } from '@/common/types';
 import { aiService } from '@/core/services/ai/text/ai-service';
 import { logger } from '@/core/utils/logger';
 
-import type { ResolvedAnalyzeConfig } from './novel-analyze-config';
 
 const METADATA_CONTENT_PREVIEW_CHARS = 2000;
 
@@ -73,6 +74,7 @@ export async function extractNovelMetadata(
     const response = await aiService.generate(prompt, {
       provider: config.provider,
       model: config.model,
+      slot: 'script.ingest',
     });
 
     const data = JSON.parse(response);

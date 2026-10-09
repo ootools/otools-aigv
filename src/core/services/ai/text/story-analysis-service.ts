@@ -49,7 +49,7 @@ class StoryAnalysisService {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const raw = await aiService.generate(prompt, { provider, model });
+        const raw = await aiService.generate(prompt, { provider, model, slot: 'script.ingest' });
         const parsed = this.parseAnalysis(raw);
         costService.recordLLMCost(
           provider,

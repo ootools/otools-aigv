@@ -42,6 +42,24 @@ export type SlotId =
   | 'util.fast' // 标题/摘要/打标等杂活 → 便宜小模型
   | `custom.${string}`; // 用户自定义 Agent
 
+/**
+ * 槽位 → 能力（P5：解析时决定走哪个适配器 / 哪类模型）。
+ * 已知槽位里只有 storyboard.image / video.generate / audio.tts 是非文本能力，
+ * 其余（含 custom.*）都归文本。新增槽位时在此补充。
+ */
+export function capabilityForSlot(slot: SlotId): Capability {
+  switch (slot) {
+    case 'storyboard.image':
+      return 'image';
+    case 'video.generate':
+      return 'video';
+    case 'audio.tts':
+      return 'tts';
+    default:
+      return 'text';
+  }
+}
+
 /** 能力级默认参数（不同能力参数差别很大，不强行统一） */
 export interface ProviderDefaults {
   // text

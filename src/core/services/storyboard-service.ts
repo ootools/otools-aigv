@@ -14,7 +14,6 @@
  * 5. 类主流程只剩"编排"——读 / 写 / 通知三件事
  */
 
-import { logger } from '@/core/utils/logger';
 
 import {
   imageGenerationService,
@@ -36,6 +35,8 @@ import {
   type StoryboardFrame,
   type StoryboardServiceOptions,
 } from './storyboard-types';
+
+import { logger } from '@/core/utils/logger';
 
 // 重导出公共类型，保持 `@/core/services/storyboard-service` 一站式导入
 export type { StoryboardFrame, StoryboardServiceOptions };
@@ -140,6 +141,7 @@ export class StoryboardService {
       const result = await aiService.generate(buildGenerateFromScriptPrompt(script, frameCount), {
         provider,
         model,
+        slot: 'storyboard.plan',
       });
 
       // 尝试从 AI 返回值中提取 JSON 数组
