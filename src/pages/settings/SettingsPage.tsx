@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 import ModelAllocationSettings from './ModelAllocationSettings';
 import ModelProviderSettings from './ModelProviderSettings';
+import ProjectModelOverrideSettings from './ProjectModelOverrideSettings';
 import { ModelSettingsProvider } from './useModelSettings';
 
 import { Button } from '@/common/components/ui/button';
@@ -66,7 +67,10 @@ const SettingsPage = () => {
       {/* 第二区: 模型分配表（绑定层：能力默认 + 槽位分配） */}
       <ModelAllocationSettings />
 
-      {/* 第三区: 本地工程工作目录 */}
+      {/* 第三区: 项目级覆盖（当前工程，优先级高于全局） */}
+      <ProjectModelOverrideSettings />
+
+      {/* 第四区: 本地工程工作目录 */}
       <div className="studio-card p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
           <div>

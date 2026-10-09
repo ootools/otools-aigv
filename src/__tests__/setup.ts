@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
-import { TextEncoder, TextDecoder } from 'util';
 import { webcrypto } from 'node:crypto';
+import { TextEncoder, TextDecoder } from 'util';
 
 // jsdom 提供 window.crypto 但不提供 crypto.subtle（长期未实现），而视频链路的 JWT-HS256
 // 签名依赖 Web Crypto。仅在 subtle 缺失时注入 node 的 webcrypto，生产代码无需改动。
@@ -148,7 +148,9 @@ beforeAll(() => {
       typeof args[0] === 'string' &&
       (args[0].includes('Warning:') ||
         args[0].includes('ReactDOM') ||
-        args[0].includes('Template not found:'))
+        args[0].includes('Template not found:') ||
+        // React 19 把 act 警告从 console.warn 挪到了 console.error（且不再带 "Warning:" 前缀）
+        args[0].includes('not wrapped in act'))
     ) {
       return;
     }

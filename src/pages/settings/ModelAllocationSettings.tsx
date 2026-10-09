@@ -13,91 +13,12 @@
 
 import { Boxes, Layers } from 'lucide-react';
 
+import { AGENT_SLOTS, ALLOC_CAPABILITIES, buildOptions, parseRef, refToValue, type SlotMeta } from './model-allocation-utils';
 import { useModelSettings } from './useModelSettings';
 
 import { Badge } from '@/common/components/ui/badge';
-import { AntDSelect as Select, type SelectOption } from '@/common/components/ui/select';
-import { getBuiltinVideoDescriptor } from '@/core/ai/protocols/vendor-task-descriptors';
-import type {
-  Capability,
-  ModelRef,
-  ProviderInstance,
-  SlotBinding,
-  SlotId,
-} from '@/core/config/model-settings/types';
-
-// ─────────────── 静态元数据：已知 Agent 槽位 ───────────────
-
-interface SlotMeta {
-  slot: SlotId;
-  label: string;
-  capability: Capability;
-}
-
-/** 设计文档 §3.4 列出的 8 个流程环节（custom.* 由用户自定义 Agent 扩展，不在静态表内） */
-const AGENT_SLOTS: SlotMeta[] = [
-  { slot: 'script.ingest', label: '剧本 / 小说识别拆解', capability: 'text' },
-  { slot: 'script.rewrite', label: '剧本精修', capability: 'text' },
-  { slot: 'character.design', label: '角色人设 + 锁脸 prompt', capability: 'text' },
-  { slot: 'storyboard.plan', label: '分镜运镜规划', capability: 'text' },
-  { slot: 'storyboard.image', label: '分镜出图', capability: 'image' },
-  { slot: 'video.generate', label: '分镜转视频', capability: 'video' },
-  { slot: 'audio.tts', label: '配音', capability: 'tts' },
-  { slot: 'util.fast', label: '标题 / 摘要 / 打标等杂活', capability: 'text' },
-];
-
-/** 参与分配表的能力（stt / embedding 预留，暂不进 UI） */
-const ALLOC_CAPABILITIES: { key: Capability; label: string }[] = [
-  { key: 'text', label: '文本' },
-  { key: 'image', label: '图像' },
-  { key: 'video', label: '视频' },
-  { key: 'tts', label: '语音' },
-];
-
-// ─────────────── 取值 / 编码工具 ───────────────
-
-/** 该提供方可选的模型列表：优先 /models 拉取结果 → 手动填写 → 描述符候选 → 默认模型 */
-function providerModels(provider: ProviderInstance): string[] {
-  if (provider.fetchedModels && provider.fetchedModels.models.length > 0) {
-    return provider.fetchedModels.models;
-  }
-  if (provider.manualModels && provider.manualModels.length > 0) {
-    return provider.manualModels;
-  }
-  if (provider.protocol === 'vendor-task' && provider.vendorDescriptorId) {
-    const desc = getBuiltinVideoDescriptor(provider.vendorDescriptorId);
-    if (desc?.candidateModels && desc.candidateModels.length > 0) return desc.candidateModels;
-  }
-  if (provider.defaultModel) return [provider.defaultModel];
-  return [];
-}
-
-/** 'providerId::modelId' → ModelRef；空串 → undefined（回退能力默认） */
-function parseRef(value: string): ModelRef | undefined {
-  if (!value) return undefined;
-  const idx = value.indexOf('::');
-  const providerId = idx >= 0 ? value.slice(0, idx) : value;
-  const modelId = idx >= 0 ? value.slice(idx + 2) : undefined;
-  return { providerId, modelId: modelId || undefined };
-}
-
-/** ModelRef → 'providerId::modelId'；undefined → '' */
-function refToValue(ref?: ModelRef): string {
-  if (!ref) return '';
-  return `${ref.providerId}::${ref.modelId ?? ''}`;
-}
-
-/** 构建「提供方 + 模型」下拉选项（含每个提供方的「默认模型」项） */
-function buildOptions(providers: ProviderInstance[], cap: Capability): SelectOption[] {
-  const opts: SelectOption[] = [{ value: '', label: '🎯 能力默认（按能力回退）' }];
-  for (const p of providers.filter((x) => x.capability === cap && x.enabled)) {
-    opts.push({ value: `${p.id}::`, label: `${p.label}（默认模型）` });
-    for (const m of providerModels(p)) {
-      opts.push({ value: `${p.id}::${m}`, label: `${p.label} · ${m}` });
-    }
-  }
-  return opts;
-}
+import { AntDSelect as Select } from '@/common/components/ui/select';
+import type { Capability, SlotBinding } from '@/core/config/model-settings/types';
 
 // ─────────────── 组件 ───────────────
 
