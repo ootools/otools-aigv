@@ -14,6 +14,7 @@
 import {
   CheckCircle2,
   Download,
+  FlaskConical,
   KeyRound,
   Loader2,
   Pencil,
@@ -26,6 +27,7 @@ import {
 import { useMemo, useState } from 'react';
 
 import { useModelSettings } from './useModelSettings';
+
 
 import { Badge } from '@/common/components/ui/badge';
 import { Button } from '@/common/components/ui/button';
@@ -40,6 +42,7 @@ import { toast } from '@/common/components/ui/toast';
 import { cn } from '@/common/utils/class-names';
 import { clearModelCache, fetchModels, probeProvider } from '@/core/ai/discovery/discovery';
 import { BUILTIN_VIDEO_DESCRIPTORS } from '@/core/ai/protocols/vendor-task-descriptors';
+import { dryRunProvider, type ProviderDryRunResult } from '@/core/ai/protocols/vendor-task-dryrun';
 import type { AuthStyle, Capability, ProtocolId, ProviderInstance } from '@/core/config/model-settings/types';
 
 
@@ -319,24 +322,28 @@ interface ProviderCardProps {
   provider: ProviderInstance;
   probing: boolean;
   fetching: boolean;
+  dryRunning: boolean;
   onProbe: (p: ProviderInstance) => void;
   onFetch: (p: ProviderInstance) => void;
   onClearCache: (p: ProviderInstance) => void;
   onEdit: (p: ProviderInstance) => void;
   onDelete: (p: ProviderInstance) => void;
   onToggleEnabled: (p: ProviderInstance, enabled: boolean) => void;
+  onDryRun: (p: ProviderInstance) => void;
 }
 
 function ProviderCard({
   provider,
   probing,
   fetching,
+  dryRunning,
   onProbe,
   onFetch,
   onClearCache,
   onEdit,
   onDelete,
   onToggleEnabled,
+  onDryRun,
 }: ProviderCardProps) {
   const probe = provider.lastProbe;
   const models = provider.fetchedModels;
@@ -416,6 +423,12 @@ function ProviderCard({
           <Download className={cn('w-3.5 h-3.5', fetching && 'animate-spin')} />
           拉取模型
         </Button>
+        {provider.protocol === 'vendor-task' && (
+          <Button size="sm" variant="outline" onClick={() => onDryRun(provider)} disabled={dryRunning}>
+            <FlaskConical className={cn('w-3.5 h-3.5', dryRunning && 'animate-spin')} />
+            试跑描述符
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onClick={() => onEdit(provider)}>
           <Pencil className="w-3.5 h-3.5" />
           编辑
@@ -425,6 +438,31 @@ function ProviderCard({
           删除
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ─────────────── 试跑结果展示 ───────────────
+
+/** 试跑单步：状态码 + ok/fail + taskId + 原始响应（JSON 美化或原始文本） */
+function DryRunStepView({ title, step }: { title: string; step: import('@/core/ai/protocols/vendor-task').VendorTaskDryRunStep }) {
+  const display = typeof step.body === 'string' ? step.body : JSON.stringify(step.body, null, 2);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-bold text-[var(--foreground)]">{title}</span>
+        <Badge variant={step.ok ? 'info' : 'destructive'}>{step.status || 'ERR'}</Badge>
+        <span className={step.ok ? 'text-[11px] text-emerald-400' : 'text-[11px] text-red-400'}>
+          {step.ok ? 'ok' : 'fail'}
+        </span>
+      </div>
+      {step.taskId && (
+        <div className="text-[11px] text-[var(--muted-foreground)] font-mono">taskId: {step.taskId}</div>
+      )}
+      {step.error && <div className="text-[11px] text-red-400 break-all">error: {step.error}</div>}
+      <pre className="text-[10px] bg-[var(--muted)]/40 rounded-md p-3 overflow-auto max-h-52 whitespace-pre-wrap break-all font-mono text-[var(--foreground)]">
+        {display}
+      </pre>
     </div>
   );
 }
@@ -439,6 +477,9 @@ export default function ModelProviderSettings() {
   const [probingId, setProbingId] = useState<string | null>(null);
   const [fetchingId, setFetchingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ProviderInstance | null>(null);
+  const [dryRunFor, setDryRunFor] = useState<ProviderInstance | null>(null);
+  const [dryRunning, setDryRunning] = useState(false);
+  const [dryRunResult, setDryRunResult] = useState<ProviderDryRunResult | null>(null);
 
   const providers = settings?.providers ?? [];
 
@@ -481,6 +522,31 @@ export default function ModelProviderSettings() {
     clearModelCache(p.id);
     patchProvider(p.id, { fetchedModels: undefined });
     toast.info(`已清除 ${p.label} 的模型缓存`);
+  };
+
+  const handleDryRun = async (p: ProviderInstance) => {
+    setDryRunFor(p);
+    setDryRunResult(null);
+    setDryRunning(true);
+    try {
+      const res = await dryRunProvider(p, p.capability);
+      setDryRunResult(res);
+      if (!res.supported) {
+        toast.warning(`「${p.label}」不是声明式适配，无法试跑`);
+      } else if (res.result?.create.ok) {
+        toast.success(`✅ 创建任务成功（HTTP ${res.result.create.status}）`);
+      } else {
+        toast.warning(
+          `⚠️ 创建任务返回 HTTP ${res.result?.create.status ?? '—'}${
+            res.result?.create.error ? `：${res.result.create.error}` : ''
+          }`
+        );
+      }
+    } catch {
+      toast.error(`❌ ${p.label}：试跑异常`);
+    } finally {
+      setDryRunning(false);
+    }
   };
 
   const handleSave = (p: ProviderInstance) => {
@@ -530,12 +596,14 @@ export default function ModelProviderSettings() {
                       provider={p}
                       probing={probingId === p.id}
                       fetching={fetchingId === p.id}
+                      dryRunning={dryRunning && dryRunFor?.id === p.id}
                       onProbe={handleProbe}
                       onFetch={(prov) => handleFetch(prov, true)}
                       onClearCache={handleClearCache}
                       onEdit={openEdit}
                       onDelete={setConfirmDelete}
                       onToggleEnabled={(prov, enabled) => patchProvider(prov.id, { enabled })}
+                      onDryRun={handleDryRun}
                     />
                   ))}
                 </div>
@@ -606,6 +674,47 @@ export default function ModelProviderSettings() {
             >
               删除
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 描述符试跑结果回显 */}
+      <Dialog open={!!dryRunFor} onOpenChange={(o) => !o && setDryRunFor(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>试跑描述符：{dryRunFor?.label}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            {dryRunning && !dryRunResult && (
+              <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] py-6 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                正在提交最小任务并回显上游原始响应…
+              </div>
+            )}
+            {dryRunResult && !dryRunResult.supported && (
+              <p className="text-sm text-red-400">
+                {dryRunResult.error ?? '该提供方不是声明式适配（vendor-task），无法试跑。'}
+              </p>
+            )}
+            {dryRunResult?.result && (
+              <>
+                <DryRunStepView title="① 创建任务（create）" step={dryRunResult.result.create} />
+                {dryRunResult.result.poll && (
+                  <DryRunStepView title="② 首轮轮询（poll）" step={dryRunResult.result.poll} />
+                )}
+                <p className="text-[11px] text-[var(--muted-foreground)]">
+                  试跑只发一次最小任务 + 一轮轮询，不等待完成，用于校验描述符的鉴权 / create 路径 /
+                  taskIdPath / poll 路径是否正确（路径写错只能运行时发现）。
+                </p>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => setDryRunFor(null)}>
+                关闭
+              </Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>

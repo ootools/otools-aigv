@@ -370,3 +370,112 @@ function standardize(raw: string): VendorTaskStatus {
   if (r === 'failed' || r === 'fail' || r === 'error') return 'failed';
   return 'processing';
 }
+
+// ─────────────── 试跑（P4 调试入口：提交 → 回显上游原始响应） ───────────────
+
+export interface VendorTaskDryRunStep {
+  step: 'create' | 'poll';
+  status: number;
+  ok: boolean;
+  /** 上游原始响应体（已尽力 JSON 解析，失败则保留原始字符串） */
+  body: unknown;
+  /** 原始文本（含非 JSON 响应，便于排查） */
+  raw: string;
+  /** 从创建响应提取的 taskId（仅 create 步） */
+  taskId?: string;
+  error?: string;
+}
+
+export interface VendorTaskDryRunResult {
+  create: VendorTaskDryRunStep;
+  poll?: VendorTaskDryRunStep;
+}
+
+/**
+ * 描述符试跑：只提交一次最小任务并回显上游原始响应（含状态码），不轮询到底。
+ * 用于校验描述符的鉴权 / create 路径 / taskIdPath 是否正确——路径写错只能运行时发现，
+ * 这是 P2c「声明式描述符」方案的刚需调试手段。
+ * 提交成功且拿到 taskId 时，再立即试一轮轮询（不等待），同样回显原始响应，
+ * 便于校验 poll 路径 / statusPath。任何环节都不抛错，全部以步骤结果呈现。
+ */
+export async function dryRunVendorTask(
+  desc: VendorTaskDescriptor,
+  req: VendorTaskRequest,
+  options: VendorTaskOptions = {}
+): Promise<VendorTaskDryRunResult> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const { headers, query: authQuery } = await buildAuth(desc, req.credentials);
+
+  // 1. 提交
+  const createQuery = { ...authQuery, ...(desc.create.query ?? {}) };
+  const createUrl = buildUrl(req.baseUrl, desc.create.path, {}, createQuery);
+  let createStep: VendorTaskDryRunStep;
+  try {
+    const res = await doFetch(fetchImpl, createUrl, {
+      method: desc.create.method ?? 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(buildCreateBody(desc, req)),
+    });
+    const raw = await res.text();
+    let body: unknown = raw;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      /* 保留原始字符串 */
+    }
+    const taskId = String(jsonPath(body, desc.create.taskIdPath) ?? '');
+    createStep = { step: 'create', status: res.status, ok: res.ok, body, raw, taskId: taskId || undefined };
+  } catch (e) {
+    createStep = {
+      step: 'create',
+      status: 0,
+      ok: false,
+      body: null,
+      raw: '',
+      error: e instanceof VendorTaskProtocolError || e instanceof Error ? e.message : String(e),
+    };
+    return { create: createStep };
+  }
+
+  // 2. 提交成功且拿到 taskId → 立即试一轮轮询（不等待）
+  if (createStep.ok && createStep.taskId) {
+    const pollQuery = { ...authQuery };
+    if (desc.poll.queryFields) {
+      for (const [logical, upstream] of Object.entries(desc.poll.queryFields)) {
+        pollQuery[upstream] =
+          logical === 'taskId'
+            ? createStep.taskId
+            : String(jsonPath(createStep.body, logical) ?? '');
+      }
+    }
+    const pollUrl = buildUrl(req.baseUrl, desc.poll.path, { taskId: createStep.taskId }, pollQuery);
+    try {
+      const res = await doFetch(fetchImpl, pollUrl, { method: desc.poll.method ?? 'GET', headers });
+      const raw = await res.text();
+      let body: unknown = raw;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        /* 保留原始字符串 */
+      }
+      return {
+        create: createStep,
+        poll: { step: 'poll', status: res.status, ok: res.ok, body, raw },
+      };
+    } catch (e) {
+      return {
+        create: createStep,
+        poll: {
+          step: 'poll',
+          status: 0,
+          ok: false,
+          body: null,
+          raw: '',
+          error: e instanceof VendorTaskProtocolError || e instanceof Error ? e.message : String(e),
+        },
+      };
+    }
+  }
+
+  return { create: createStep };
+}

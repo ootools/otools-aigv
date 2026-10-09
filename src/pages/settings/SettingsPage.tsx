@@ -1,7 +1,9 @@
 import { FolderOpen, Settings as SettingsIcon } from 'lucide-react';
 import React, { useState } from 'react';
 
+import ModelAllocationSettings from './ModelAllocationSettings';
 import ModelProviderSettings from './ModelProviderSettings';
+import { ModelSettingsProvider } from './useModelSettings';
 
 import { Button } from '@/common/components/ui/button';
 import { Input } from '@/common/components/ui/input';
@@ -45,7 +47,8 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto py-2">
+    <ModelSettingsProvider>
+      <div className="space-y-6 max-w-5xl mx-auto py-2">
       {/* 头部标题区 */}
       <div className="studio-card p-6 space-y-1">
         <h2 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
@@ -60,7 +63,10 @@ const SettingsPage = () => {
       {/* 第一区: AI 模型提供方配置（新架构：按能力管理 + 真实探测） */}
       <ModelProviderSettings />
 
-      {/* 第二区: 本地工程工作目录 */}
+      {/* 第二区: 模型分配表（绑定层：能力默认 + 槽位分配） */}
+      <ModelAllocationSettings />
+
+      {/* 第三区: 本地工程工作目录 */}
       <div className="studio-card p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
           <div>
@@ -96,7 +102,8 @@ const SettingsPage = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ModelSettingsProvider>
   );
 };
 
