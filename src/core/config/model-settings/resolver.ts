@@ -49,6 +49,14 @@ function firstEnabledProvider(
 }
 
 /**
+ * 某能力下是否存在「可用」的提供方实例（enabled 且自身或继承到凭据）。
+ * 供旧媒体链路（图像 / 语音 / 视频）判断「是否该走新客户端」——无则回退旧实现。
+ */
+export function hasCapabilityProvider(settings: ModelSettings, capability: Capability): boolean {
+  return firstEnabledProvider(settings, capability) !== undefined;
+}
+
+/**
  * 解析能力 / 槽位对应的模型引用。顺序（§3.5）：
  * 1. 项目级 slotBindings[slot]
  * 2. 全局 slotBindings[slot].ref

@@ -19,6 +19,14 @@
  * URL、SSML 模板、chunks 切分逻辑 1:1 保留。
  */
 
+
+
+import { SYNTHESIZE_REGISTRY, ensureNonEmptyText } from './tts-provider-registry';
+import { synthesizeEdgeStream } from './tts-providers/edge';
+import { DEFAULT_TTS_CONFIG } from './tts-types';
+import { estimateDuration, saveAudio } from './tts-utils';
+import { TTS_VOICES } from './tts-voices';
+
 import type {
   TTSProvider,
   TTSVoice,
@@ -26,12 +34,9 @@ import type {
   TTSResponse,
   TTSStreamChunk,
 } from '@/common/types';
-
-import { SYNTHESIZE_REGISTRY, ensureNonEmptyText } from './tts-provider-registry';
-import { synthesizeEdgeStream } from './tts-providers/edge';
-import { DEFAULT_TTS_CONFIG } from './tts-types';
-import { saveAudio } from './tts-utils';
-import { TTS_VOICES } from './tts-voices';
+import { callTtsModel } from '@/core/ai/tts-client';
+import { loadModelSettings } from '@/core/config/model-settings';
+import { hasCapabilityProvider } from '@/core/config/model-settings/resolver';
 
 // 顶层常量导出（保持外部 import 路径不变）
 export { DEFAULT_TTS_CONFIG, TTS_VOICES };
@@ -68,6 +73,24 @@ class TTSService {
   async synthesize(request: TTSRequest): Promise<TTSResponse> {
     const { text, config, signal } = request;
     ensureNonEmptyText(text);
+
+    // 新架构优先：用户在设置里建了 tts 提供方实例（P2b 的 openai-speech 适配器）→ 走新客户端；
+    // 否则回退旧链路（Edge TTS + 各家 stub）。
+    const modelSettings = await loadModelSettings();
+    if (hasCapabilityProvider(modelSettings, 'tts')) {
+      const res = await callTtsModel(modelSettings, {
+        input: text,
+        voice: config.voice,
+        speed: config.speed,
+        signal,
+      });
+      return {
+        audio: res.audio,
+        duration: estimateDuration(text, config.speed || 1),
+        size: res.audio.byteLength,
+        format: res.contentType ?? config.format,
+      };
+    }
 
     const impl = SYNTHESIZE_REGISTRY[config.provider];
     if (!impl) {

@@ -29,6 +29,7 @@ const mockedAxios = axios as any;
 
 // Mock secure storage service
 jest.mock('@/core/services/project/secure-storage-service', () => ({
+  detectTauriEnvironment: () => false,
   secureStorage: {
     getSecureConfig: jest.fn().mockImplementation((key: string) => {
       if (key === 'api_keys') {
