@@ -8,4 +8,3 @@
 
 export { mockStrategy } from './mock-strategy';
 export type { AIProviderStrategy } from './base';
-export type { ChatMessage } from './ai-provider-interface';

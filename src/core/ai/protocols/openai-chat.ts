@@ -11,9 +11,15 @@
 
 export type OpenAIChatRole = 'system' | 'user' | 'assistant';
 
+/** 多模态内容块（OpenAI 视觉格式）：文本 或 图片 URL */
+export type OpenAIChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } };
+
 export interface OpenAIChatMessage {
   role: OpenAIChatRole;
-  content: string;
+  /** 纯文本，或多模态内容块数组（视觉模型用） */
+  content: string | OpenAIChatContentPart[];
   name?: string;
 }
 

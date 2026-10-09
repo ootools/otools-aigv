@@ -6,9 +6,6 @@
  * 行为字节级一致：单帧 prompt 拼接 + VLM 调用 + 整数解析 + 失败兜底。
  */
 
-import type { AIProvider, ChatMessage } from '@/core/ai/providers/ai-provider-interface';
-import type { CharacterVideoRef } from '@/core/services/ai/image/image-generation/types';
-
 import { evaluateByPromptMatch } from './visual-consistency-heuristic';
 import {
   NO_REFERENCE_NOTE,
@@ -19,6 +16,13 @@ import {
   type VisualConsistencyInput,
   type VisualConsistencyResult,
 } from './visual-consistency-types';
+
+import type { OpenAIChatContentPart, OpenAIChatMessage } from '@/core/ai/protocols/openai-chat';
+import { callTextModel } from '@/core/ai/text-client';
+import { resolveModelRef } from '@/core/config/model-settings/resolver';
+import type { ModelSettings } from '@/core/config/model-settings/types';
+import type { CharacterVideoRef } from '@/core/services/ai/image/image-generation/types';
+
 
 /** VLM 评估 prompt 模板（与原 compareFrameWithReference 内联字符串字节级一致） */
 const VLM_PROMPT_TEMPLATE = `You are a visual consistency evaluator for anime/comic characters.
@@ -52,22 +56,22 @@ function parseVlmScore(text: string): number {
   return Math.max(0, Math.min(100, score));
 }
 
-/** 构造参考图消息列表 */
-function buildReferenceImages(referenceUrls: string[], charName: string) {
-  return referenceUrls.flatMap((url, i) => [
-    { type: 'text' as const, text: `Reference image ${i + 1} (character: ${charName}):` },
-    { type: 'image_url' as const, image_url: { url, detail: 'low' as const } },
+/** 构造参考图内容块列表 */
+function buildReferenceImages(referenceUrls: string[], charName: string): OpenAIChatContentPart[] {
+  return referenceUrls.flatMap((url, i): OpenAIChatContentPart[] => [
+    { type: 'text', text: `Reference image ${i + 1} (character: ${charName}):` },
+    { type: 'image_url', image_url: { url, detail: 'low' } },
   ]);
 }
 
 /**
  * 用 VLM 比较单帧与参考图一致性
  *
- * 行为与原 `compareFrameWithReference` 字节级一致。
+ * 走新架构：`callTextModel`（openai-chat 单协议，支持多模态内容块），
+ * 槽位 `util.fast`（杂活 → 便宜小模型）；解析失败兜底 `VLM_FALLBACK_SCORE`。
  */
 export async function compareFrameWithReference(
-  provider: AIProvider,
-  model: string,
+  settings: ModelSettings,
   frameUrl: string,
   referenceUrls: string[],
   charRef: CharacterVideoRef
@@ -75,23 +79,19 @@ export async function compareFrameWithReference(
   const characterDesc = charRef.referencePrompt || charRef.name;
   const prompt = buildVlmPrompt(characterDesc);
 
+  const content: OpenAIChatContentPart[] = [
+    ...buildReferenceImages(referenceUrls, charRef.name),
+    { type: 'text', text: `\nTest image (evaluate consistency):` },
+    { type: 'image_url', image_url: { url: frameUrl, detail: 'low' } },
+  ];
+  const messages: OpenAIChatMessage[] = [
+    { role: 'user', content },
+    { role: 'user', content: prompt },
+  ];
+
   try {
-    const response = await provider.chat({
-      model,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            ...buildReferenceImages(referenceUrls, charRef.name),
-            { type: 'text' as const, text: `\nTest image (evaluate consistency):` },
-            { type: 'image_url' as const, image_url: { url: frameUrl, detail: 'low' as const } },
-          ],
-        } as unknown as ChatMessage,
-        { role: 'user' as const, content: prompt } as unknown as ChatMessage,
-      ],
-    });
-    const text = response.choices[0]?.message?.content ?? '';
-    return parseVlmScore(text);
+    const response = await callTextModel(settings, 'text', messages, { slot: 'util.fast' });
+    return parseVlmScore(response.content);
   } catch {
     return VLM_FALLBACK_SCORE;
   }
@@ -115,11 +115,12 @@ function getReferenceUrls(charRef: CharacterVideoRef): string[] {
  *   - 聚合 overallScore
  */
 export async function evaluateWithVLM(
-  provider: AIProvider,
-  model: string,
+  settings: ModelSettings,
   input: VisualConsistencyInput
 ): Promise<VisualConsistencyResult> {
   const { frameUrls, characterReferences } = input;
+  // 解析出实际使用的模型名（仅用于结果回显）；真正发请求在 compareFrameWithReference 内
+  const { modelId } = resolveModelRef(settings, 'text', { slot: 'util.fast' });
   const characterScores: CharacterConsistencyScore[] = [];
 
   for (const charRef of characterReferences) {
@@ -131,7 +132,7 @@ export async function evaluateWithVLM(
         characterId: charRef.characterId,
         characterName: charRef.name,
         score,
-        frameScores: new Array(frameUrls.length).fill(score),
+        frameScores: Array.from({ length: frameUrls.length }, () => score),
         notes: [NO_REFERENCE_NOTE],
       });
       continue;
@@ -140,13 +141,7 @@ export async function evaluateWithVLM(
     const frameScores: number[] = [];
     for (let i = 0; i < frameUrls.length; i++) {
       const frameUrl = frameUrls[i];
-      const frameScore = await compareFrameWithReference(
-        provider,
-        model,
-        frameUrl,
-        referenceUrls,
-        charRef
-      );
+      const frameScore = await compareFrameWithReference(settings, frameUrl, referenceUrls, charRef);
       frameScores.push(frameScore);
     }
 
@@ -160,7 +155,7 @@ export async function evaluateWithVLM(
     });
   }
 
-return buildConsistencyResult(characterScores, frameUrls.length, model);
+  return buildConsistencyResult(characterScores, frameUrls.length, modelId);
 }
 
 // 注：VLM 分支的"无参考图"走的是 evaluateByPromptMatch，但原代码接受 charRef 而非 prompt。

@@ -16,16 +16,17 @@
  * 6. 类主流程只剩"编排"——evaluate 路由 VLM / heuristic + 维护 provider 状态
  */
 
-import type { AIProvider } from '@/core/ai/providers/ai-provider-interface';
 
 import { evaluateWithHeuristic } from './visual-consistency-heuristic';
 import {
-  DEFAULT_VLM_MODEL,
   createEmptyResult,
   type VisualConsistencyInput,
   type VisualConsistencyResult,
 } from './visual-consistency-types';
 import { evaluateWithVLM } from './visual-consistency-vlm';
+
+import { loadModelSettings } from '@/core/config/model-settings';
+import { hasCapabilityProvider } from '@/core/config/model-settings/resolver';
 
 // 重导出公共类型，保持 `@/core/services/video/visual-consistency-scorer-service` 一站式导入
 export type {
@@ -42,26 +43,15 @@ export type {
  *   - model: 当前 VLM 模型名
  */
 export class VisualConsistencyScorer {
-  private provider: AIProvider | null = null;
-  private model: string;
-
-  constructor(provider?: AIProvider, model: string = DEFAULT_VLM_MODEL) {
-    this.provider = provider ?? null;
-    this.model = model;
-  }
-
-  /** 设置 AI Provider（用于 VLM 调用） */
-  setProvider(provider: AIProvider): void {
-    this.provider = provider;
-  }
-
   /**
-   * 评估视觉一致性
+   * 评估视觉一致性。
    *
-   * 策略路由（与原 evaluate 字节级一致）：
+   * 策略路由：
    *   - 空输入（无帧或无角色）→ 返回空结果
-   *   - 有 provider → evaluateWithVLM
-   *   - 无 provider → evaluateWithHeuristic
+   *   - 配了可用文本提供方 → `evaluateWithVLM`（新架构 text 客户端，多模态）
+   *   - 未配置 → `evaluateWithHeuristic`（本地启发式兜底）
+   *
+   * 不再需要外部注入 `AIProvider`——直接从 `model-settings` 解析。
    */
   async evaluate(input: VisualConsistencyInput): Promise<VisualConsistencyResult> {
     const { frameUrls, characterReferences } = input;
@@ -70,8 +60,9 @@ export class VisualConsistencyScorer {
       return createEmptyResult();
     }
 
-    if (this.provider) {
-      return evaluateWithVLM(this.provider, this.model, input);
+    const settings = await loadModelSettings();
+    if (hasCapabilityProvider(settings, 'text')) {
+      return evaluateWithVLM(settings, input);
     }
     return evaluateWithHeuristic(input);
   }
