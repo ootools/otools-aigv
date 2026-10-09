@@ -76,6 +76,8 @@ export interface VendorTaskDescriptor {
   /** 最终视频 URL / 内容的 JSON 路径（有 fetchResult 时从第二步响应取，否则从 poll 响应取） */
   resultPath: string;
   defaultModel?: string;
+  /** /models 不支持时回退的候选模型名（视频「模型叫什么」随服务商变，没有跨家通用名） */
+  candidateModels?: string[];
 }
 
 /** 引擎的输入：上游路径 + 凭据 + 逻辑字段 */

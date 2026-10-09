@@ -94,6 +94,8 @@ export interface ProviderInstance {
 
   enabled: boolean;
   lastProbe?: { at: number; ok: boolean; latencyMs?: number; error?: string };
+  /** /models 拉取结果缓存（不每次打开都请求；P3 写入，P4 设置页读 + 刷新） */
+  fetchedModels?: { at: number; models: string[]; source: 'auto' | 'candidate' | 'manual' };
   createdAt: number;
 }
 

@@ -44,6 +44,7 @@ const KLING_OFFICIAL: VendorTaskDescriptor = {
     maxAttempts: 120,
   },
   resultPath: 'data.works[0].resource_url',
+  candidateModels: ['kling-v2-6', 'kling-v2-pro', 'kling-3.0-omni', 'kling-3.0-turbo'],
 };
 
 /** MiniMax：Bearer；create /v1/video_generation；轮询走 query string；两步取结果（file_id → 下载地址） */
@@ -84,6 +85,7 @@ const MINIMAX: VendorTaskDescriptor = {
     fromPaths: { file_id: 'file_id' },
   },
   resultPath: 'file.download_url',
+  candidateModels: ['hailuo-video-01', 'minimax-video-01', 'hailuo-02-standard', 'hailuo-02-pro'],
 };
 
 /** 智谱 CogVideo：Bearer；create /v1/video_generation；轮询 /v1/video_generation/{id} */
@@ -117,6 +119,7 @@ const ZHIPU: VendorTaskDescriptor = {
     maxAttempts: 120,
   },
   resultPath: 'video_url',
+  candidateModels: ['cogvideo-2', 'cogvideo-x-2.0', 'cogvideox-flash', 'cogvideox-plus'],
 };
 
 /** 内置描述符注册表 */
