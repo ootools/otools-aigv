@@ -1,19 +1,44 @@
 /**
- * TTS 服务测试
+ * TTS 服务测试（新架构：只走 callTtsModel）
  */
 
+import { callTtsModel } from '@/core/ai/tts-client';
+import { MODEL_SETTINGS_STORAGE_KEY } from '@/core/config/model-settings/types';
 import { ttsService, DEFAULT_TTS_CONFIG, TTS_VOICES } from '@/core/services';
 
-// Mock fetch
-global.fetch = jest.fn(() =>
-  Promise.resolve({
-    ok: true,
-    arrayBuffer: () => Promise.resolve(new ArrayBuffer(1000)),
-  })
-) as jest.Mock;
+jest.mock('@/core/ai/tts-client', () => ({ callTtsModel: jest.fn() }));
+
+const mockTts = callTtsModel as jest.Mock;
+
+function seedTtsProvider() {
+  localStorage.setItem(
+    MODEL_SETTINGS_STORAGE_KEY,
+    JSON.stringify({
+      schemaVersion: 2,
+      providers: [
+        {
+          id: 'tts1',
+          label: 'OpenAI 语音',
+          capability: 'tts',
+          protocol: 'openai-speech',
+          baseUrl: 'https://api.openai.com/v1',
+          apiKey: 'k',
+          authStyle: 'bearer',
+          modelSource: 'auto',
+          enabled: true,
+          createdAt: 1,
+          defaultModel: 'tts-1',
+        },
+      ],
+      capabilityDefaults: {},
+      slotBindings: {},
+    })
+  );
+}
 
 describe('TTS Service', () => {
   beforeEach(() => {
+    localStorage.clear();
     jest.clearAllMocks();
   });
 
@@ -25,7 +50,7 @@ describe('TTS Service', () => {
     });
 
     it('应该返回空数组当提供商不存在', () => {
-      const voices = ttsService.getVoices('unknown' as any);
+      const voices = ttsService.getVoices('unknown' as never);
       expect(voices).toEqual([]);
     });
   });
@@ -45,78 +70,61 @@ describe('TTS Service', () => {
     });
 
     it('应该返回 undefined 当 ID 不存在', () => {
-      const voice = ttsService.getVoiceById('nonexistent');
-      expect(voice).toBeUndefined();
+      expect(ttsService.getVoiceById('nonexistent')).toBeUndefined();
     });
   });
 
   describe('synthesize', () => {
-    it('应该合成语音', async () => {
-      const request = {
-        text: '你好世界',
-        config: DEFAULT_TTS_CONFIG,
-      };
+    it('应该走新客户端（callTtsModel）并映射为 TTSResponse', async () => {
+      seedTtsProvider();
+      const audio = new ArrayBuffer(1000);
+      mockTts.mockResolvedValue({ audio, contentType: 'audio/mpeg' });
 
-      const response = await ttsService.synthesize(request);
+      const response = await ttsService.synthesize({ text: '你好世界', config: DEFAULT_TTS_CONFIG });
 
-      expect(response).toHaveProperty('audio');
-      expect(response).toHaveProperty('duration');
-      expect(response).toHaveProperty('size');
-      expect(response).toHaveProperty('format');
+      expect(mockTts).toHaveBeenCalledTimes(1);
+      expect(mockTts.mock.calls[0][1]).toMatchObject({ input: '你好世界' });
+      expect(response.audio).toBe(audio);
+      expect(response.size).toBe(1000);
+      expect(response.format).toBe('audio/mpeg');
+      expect(response.duration).toBeGreaterThan(0);
     });
 
     it('应该在文本为空时抛出错误', async () => {
-      const request = {
-        text: '',
-        config: DEFAULT_TTS_CONFIG,
-      };
-
-      await expect(ttsService.synthesize(request)).rejects.toThrow('文本内容不能为空');
+      await expect(
+        ttsService.synthesize({ text: '', config: DEFAULT_TTS_CONFIG })
+      ).rejects.toThrow('文本内容不能为空');
     });
 
     it('应该在文本只有空格时抛出错误', async () => {
-      const request = {
-        text: '   ',
-        config: DEFAULT_TTS_CONFIG,
-      };
-
-      await expect(ttsService.synthesize(request)).rejects.toThrow('文本内容不能为空');
-    });
-
-    it('应该调用 fetch', async () => {
-      const request = {
-        text: '测试',
-        config: DEFAULT_TTS_CONFIG,
-      };
-
-      await ttsService.synthesize(request);
-
-      expect(global.fetch).toHaveBeenCalled();
+      await expect(
+        ttsService.synthesize({ text: '   ', config: DEFAULT_TTS_CONFIG })
+      ).rejects.toThrow('文本内容不能为空');
     });
   });
 
   describe('streamSynthesize', () => {
-    it('应该流式合成语音', async () => {
-      const request = {
-        text: '你好世界',
-        config: DEFAULT_TTS_CONFIG,
-      };
+    it('应该单块吐出音频', async () => {
+      seedTtsProvider();
+      mockTts.mockResolvedValue({ audio: new ArrayBuffer(500), contentType: 'audio/mpeg' });
 
       const chunks: unknown[] = [];
-      for await (const chunk of ttsService.streamSynthesize(request)) {
+      for await (const chunk of ttsService.streamSynthesize({
+        text: '你好世界',
+        config: DEFAULT_TTS_CONFIG,
+      })) {
         chunks.push(chunk);
       }
 
-      expect(chunks.length).toBeGreaterThan(0);
+      expect(chunks.length).toBe(1);
       expect(chunks[0]).toHaveProperty('audio');
-      expect(chunks[0]).toHaveProperty('isFinal');
+      expect(chunks[0]).toHaveProperty('isFinal', true);
     });
   });
 
   describe('cancelRequest', () => {
     it('应该能取消请求', () => {
-      const requestId = 'test-request';
-      ttsService.cancelRequest(requestId); // 不应该抛出错误
+      ttsService.cancelRequest('test-request'); // 不应该抛出错误
     });
   });
 });

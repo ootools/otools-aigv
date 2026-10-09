@@ -1,28 +1,18 @@
 /**
- * 共享工具函数
+ * 共享工具函数（新架构下仅保留 getAPIKey）
+ *
+ * 旧图像 provider（Seedream / Kling / Vidu）已移除，随之删掉了
+ * `mapCharacterReferences` / `parseSize` / `mapKlingSize` / `mapViduSize`。
+ * `getAPIKey` 仍被 `lip-sync-service`（sync / sadtalker）使用，故保留。
  */
-
-import type { CharacterVideoRef, ImageSize } from './types';
 
 export type { ImageSize } from './types';
 
 /**
- * 把 CharacterVideoRef[] 映射为 Kling/Vidu API 期望的 { id, image_url } 格式。
- * 复用 front → fullBody 的回退逻辑，并过滤掉没有 image_url 的项。
- */
-export function mapCharacterReferences(
-  refs: CharacterVideoRef[] | undefined
-): Array<{ id: string; image_url: string }> | undefined {
-  return refs
-    ?.map((ref) => ({
-      id: ref.characterId,
-      image_url: ref.referenceImageUrls?.front || ref.referenceImageUrls?.fullBody || '',
-    }))
-    .filter((r) => r.image_url);
-}
-
-/**
- * 获取 API Key
+ * 从 secureStorage 取 API Key（旧链路的凭据来源）。
+ *
+ * 注意：新的图像 / 视频 / 语音 / 文本链路统一走 `model-settings` 里的
+ * `ProviderInstance.apiKey`；这里只服务于尚未迁移的 lip-sync（sync / sadtalker）。
  */
 export async function getAPIKey(service: string): Promise<string> {
   const { secureStorage } = await import('../../../project/secure-storage-service');
@@ -44,40 +34,4 @@ export async function getAPIKey(service: string): Promise<string> {
   }
 
   return '';
-}
-
-/**
- * 解析图像尺寸
- */
-export function parseSize(size: ImageSize): { width: number; height: number } {
-  if (size === '1K') return { width: 1024, height: 1024 };
-  if (size === '2K') return { width: 2048, height: 2048 };
-  if (size === '4K') return { width: 4096, height: 4096 };
-
-  const [w, h] = size.split('x').map(Number);
-  return { width: w ?? 1024, height: h ?? 1024 };
-}
-
-/**
- * 映射可灵尺寸
- */
-export function mapKlingSize(size: ImageSize): string {
-  const map: Record<string, string> = {
-    '1K': '1024x1024',
-    '2K': '2048x2048',
-    '4K': '4096x4096',
-  };
-  return map[size] || size;
-}
-
-/**
- * 映射 Vidu 尺寸
- */
-export function mapViduSize(size: ImageSize): string {
-  const map: Record<string, string> = {
-    '1K': '1024x1024',
-    '2K': '1920x1920',
-    '4K': '3840x2160',
-  };
-  return map[size] || size;
 }

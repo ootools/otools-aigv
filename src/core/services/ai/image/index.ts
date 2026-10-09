@@ -1,10 +1,9 @@
 /**
- * AI image & video generation services: Seedream, Kling, Vidu, Seedance adapters.
- * Plus the unified `image-generation-service` facade.
+ * AI image & video generation services.
  *
- * Note: re-exporting image-generation-service as the canonical entry point
- * (it re-exports all adapter internals). The `./image-generation` subdir
- * is exposed separately for advanced callers.
+ * 新架构下统一走 `image-generation-service`（内部 → `@/core/ai/image-client` /
+ * `video-client`）；旧的 Seedream / Kling / Vidu / Seedance 各自 adapter 已移除。
+ * `./image-generation` 子目录仅保留 types 与 `getAPIKey`（后者服务于 lip-sync）。
  */
 
 export * from './image-generation-service';
