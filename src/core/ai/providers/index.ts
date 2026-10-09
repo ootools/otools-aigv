@@ -1,14 +1,11 @@
 /**
- * AI Provider Registry — barrel re-exports
+ * AI Provider — barrel re-exports
+ *
+ * 新架构下「一家服务商一份 strategy」的旧实现（providerRegistry + openai / anthropic / google /
+ * baidu / alibaba / zhipu strategy）已移除：文本走 `@/core/ai/text-client`（openai-chat 单协议），
+ * 图像 / 视频 / 语音走各自的 client。这里仅保留 mockStrategy（测试 / 开发用）与相关类型。
  */
 
-export { providerRegistry } from './provider-registry';
-export { openAIStrategy } from './openai-strategy';
-export { anthropicStrategy } from './anthropic-strategy';
-export { googleStrategy } from './google-strategy';
-export { baiduStrategy } from './baidu-strategy';
-export { alibabaStrategy } from './alibaba-strategy';
-export { zhipuStrategy } from './zhipu-strategy';
 export { mockStrategy } from './mock-strategy';
 export type { AIProviderStrategy } from './base';
 export type { ChatMessage } from './ai-provider-interface';

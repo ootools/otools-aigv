@@ -7,9 +7,10 @@
  * - ai-mock-data        generateMockScenes / generateMockKeyframes
  *                       parseScriptSegments / estimateDuration
  * - ai-cache            buildAICacheKey + withAIResponseCache
- * - ai-call-dispatcher  buildRequestConfig + dispatchAIRequest
- * - ai-stream           chunkText + yieldChunked + streamGenerateWithFallback
+ * - ai-call-dispatcher  buildRequestConfig（旧 dispatchAIRequest / providerRegistry 已移除）
  * - ai-batch            batchGenerate（复用 core/utils/concurrency）
+ *
+ * 文本调用统一走新架构：callAPI → resolveCurrentSlotModel + callTextModel（`@/core/ai/text-client`）。
  *
  * 公开 API 完全兼容（generate/generateScript/analyzeVideo/optimizeScript/
  * translateScript/streamGenerate/batchGenerate + 6 个 getter + mock 控制），
@@ -19,7 +20,7 @@
 
 import { batchGenerate } from './ai-batch';
 import { buildAICacheKey, withAIResponseCache } from './ai-cache';
-import { buildRequestConfig, dispatchAIRequest } from './ai-call-dispatcher';
+import { buildRequestConfig } from './ai-call-dispatcher';
 import {
   estimateDuration,
   generateMockKeyframes,
@@ -33,7 +34,6 @@ import type {
   VideoAnalysis,
   MockConfig,
 } from './ai-service-types';
-import { streamGenerateWithFallback } from './ai-stream';
 import { promptBuilderService } from './prompt-builder-service';
 
 import type { Script } from '@/common/types';
@@ -41,7 +41,7 @@ import { mockStrategy } from '@/core/ai/providers';
 import { resolveCurrentSlotModel } from '@/core/ai/runtime/model-runtime';
 import { callTextModel } from '@/core/ai/text-client';
 import { loadModelSettings, loadProjectOverrides } from '@/core/config/model-settings';
-import { resolveTextModelRef } from '@/core/config/model-settings/resolver';
+import { ModelResolutionError, resolveTextModelRef } from '@/core/config/model-settings/resolver';
 import type { Capability, ProviderInstance, SlotId } from '@/core/config/model-settings/types';
 import { getModelById } from '@/core/config/models-config';
 import { LLM_MODELS, DEFAULT_LLM_MODEL, MODEL_RECOMMENDATIONS } from '@/core/constants';
@@ -60,6 +60,9 @@ export type {
   VideoScene,
   Keyframe,
 } from './ai-service-types';
+
+/** 流式兜底时每段吐出的字符数 */
+const STREAM_CHUNK_SIZE = 10;
 
 class AIService {
   // 启用/禁用 Mock 模式
@@ -290,16 +293,15 @@ ${script}
       max_tokens?: number;
     }
   ): AsyncGenerator<string> {
-    const model = this.getModelById(options.model);
-    if (!model) {
+    if (!this.getModelById(options.model)) {
       throw new Error(`Model ${options.model} not found`);
     }
 
-    const settings = this.buildDefaultSettings(model, options);
-
-    yield* streamGenerateWithFallback(model, settings, prompt, () =>
-      this.generate(prompt, options)
-    );
+    // 新架构下统一走 callAPI（文本 → callTextModel）；无真流式接口，故一次性生成后分块吐出。
+    const full = await this.generate(prompt, options);
+    for (let i = 0; i < full.length; i += STREAM_CHUNK_SIZE) {
+      yield full.slice(i, i + STREAM_CHUNK_SIZE);
+    }
   }
 
   async batchGenerate(
@@ -395,10 +397,13 @@ ${script}
       );
     }
 
-    // 回退：旧 registry（非 OpenAI 兼容 / 尚未迁移 / 非文本能力场景）
-    const cacheKey = buildAICacheKey(model.provider, model.id, prompt, settings.temperature);
-    return withAIResponseCache(cacheKey, () =>
-      dispatchAIRequest(model, settings, config, requestId)
+    // 旧 providerRegistry / dispatchAIRequest 已移除：未配置可用文本提供方 → 指名道姓报错
+    throw new ModelResolutionError(
+      slot
+        ? `未为「${slot}」配置可用的文本提供方，请先在设置里配置。`
+        : '未配置任何可用的文本提供方，请先在设置里配置。',
+      'text',
+      slot
     );
   }
 }
