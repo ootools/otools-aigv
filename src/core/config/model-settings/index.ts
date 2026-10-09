@@ -44,6 +44,8 @@ export {
   hasUsableCredentials,
 } from './credentials';
 export type { ProviderCredentials } from './credentials';
+export { PROVIDER_PRESETS, getProviderPreset, applyProviderPreset } from './presets';
+export type { ProviderPreset } from './presets';
 
 import { migrateLegacyModelConfig } from './migration';
 import { loadModelSettings, saveModelSettings } from './store';

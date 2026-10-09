@@ -36,16 +36,19 @@ export interface ResolveOptions {
 
 /**
  * 在 settings 里找一个能力下第一个 enabled 且有「可用凭据」的 ProviderInstance。
- * 用 `hasUsableCredentials` 而非直接看 `p.apiKey`，这样「凭据继承」的实例
- * （自身 apiKey 为空、从别的实例继承）也能被兜底选中。
+ *
+ * **网关优先**（P9，设计 §7.2）：同一能力下若有标记 `isGateway` 的实例，兜底时先选网关
+ * （协议适配 / 账号池 / 计费下沉到网关是推荐路径）。用 `hasUsableCredentials` 而非直接看
+ * `p.apiKey`，这样「凭据继承」的实例（自身 apiKey 为空、从别的实例继承）也能被兜底选中。
  */
 function firstEnabledProvider(
   settings: ModelSettings,
   capability: Capability
 ): ProviderInstance | undefined {
-  return settings.providers.find(
+  const candidates = settings.providers.filter(
     (p) => p.capability === capability && p.enabled && hasUsableCredentials(settings, p)
   );
+  return candidates.find((p) => p.isGateway) ?? candidates[0];
 }
 
 /**

@@ -38,6 +38,7 @@ export type SlotId =
   | 'storyboard.plan' // 分镜运镜规划
   | 'storyboard.image' // 分镜出图
   | 'video.generate' // 分镜转视频
+  | 'video.lipsync' // 唇同步 / 说话人脸（image/video + audio → video）
   | 'audio.tts' // 配音
   | 'util.fast' // 标题/摘要/打标等杂活 → 便宜小模型
   | `custom.${string}`; // 用户自定义 Agent
@@ -52,6 +53,7 @@ export function capabilityForSlot(slot: SlotId): Capability {
     case 'storyboard.image':
       return 'image';
     case 'video.generate':
+    case 'video.lipsync':
       return 'video';
     case 'audio.tts':
       return 'tts';
@@ -119,6 +121,12 @@ export interface ProviderInstance {
   defaults?: ProviderDefaults;
 
   enabled: boolean;
+  /**
+   * 网关标记（P9）：解析时**网关优先**——同一能力下有多个可用实例时，优先选网关实例
+   * （把协议适配 / 账号池 / 计费下沉到网关，是推荐路径；见设计 §7.2「双层：网关优先 + 直连兜底」）。
+   * 由「AI Switch 网关」模板自动置位，也可手动勾选。
+   */
+  isGateway?: boolean;
   lastProbe?: { at: number; ok: boolean; latencyMs?: number; error?: string };
   /** /models 拉取结果缓存（不每次打开都请求；P3 写入，P4 设置页读 + 刷新） */
   fetchedModels?: { at: number; models: string[]; source: 'auto' | 'candidate' | 'manual' };

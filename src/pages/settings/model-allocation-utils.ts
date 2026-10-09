@@ -24,6 +24,7 @@ export const AGENT_SLOTS: SlotMeta[] = [
   { slot: 'storyboard.plan', label: '分镜运镜规划', capability: 'text' },
   { slot: 'storyboard.image', label: '分镜出图', capability: 'image' },
   { slot: 'video.generate', label: '分镜转视频', capability: 'video' },
+  { slot: 'video.lipsync', label: '唇同步 / 说话人脸', capability: 'video' },
   { slot: 'audio.tts', label: '配音', capability: 'tts' },
   { slot: 'util.fast', label: '标题 / 摘要 / 打标等杂活', capability: 'text' },
 ];
@@ -77,8 +78,12 @@ export function buildOptions(
   emptyLabel = '🎯 能力默认（按能力回退）'
 ): SelectOption[] {
   const opts: SelectOption[] = [{ value: '', label: emptyLabel }];
-  for (const p of providers.filter((x) => x.capability === cap && x.enabled)) {
-    opts.push({ value: `${p.id}::`, label: `${p.label}（默认模型）` });
+  // 网关优先：标记 isGateway 的实例排在同能力其它实例之前（设计 §7.2）
+  const list = providers
+    .filter((x) => x.capability === cap && x.enabled)
+    .sort((a, b) => Number(b.isGateway ?? false) - Number(a.isGateway ?? false));
+  for (const p of list) {
+    opts.push({ value: `${p.id}::`, label: `${p.label}${p.isGateway ? '（网关）' : '（默认模型）'}` });
     for (const m of providerModels(p)) {
       opts.push({ value: `${p.id}::${m}`, label: `${p.label} · ${m}` });
     }

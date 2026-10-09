@@ -44,6 +44,7 @@ import { clearModelCache, fetchModels, probeProvider } from '@/core/ai/discovery
 import { BUILTIN_VIDEO_DESCRIPTORS } from '@/core/ai/protocols/vendor-task-descriptors';
 import { dryRunProvider, type ProviderDryRunResult } from '@/core/ai/protocols/vendor-task-dryrun';
 import { extractCredentials } from '@/core/config/model-settings/credentials';
+import { PROVIDER_PRESETS, applyProviderPreset, getProviderPreset } from '@/core/config/model-settings/presets';
 import type { AuthStyle, Capability, ProtocolId, ProviderInstance } from '@/core/config/model-settings/types';
 
 
@@ -136,6 +137,7 @@ function ProviderDialog({ open, initial, allProviders, onClose, onSave }: Provid
   const [form, setForm] = useState<ProviderInstance>(() => initial ?? emptyProvider('text', () => 'new'));
   const [manualText, setManualText] = useState('');
   const [filterText, setFilterText] = useState('');
+  const [presetId, setPresetId] = useState('');
 
   // 打开 / 切换编辑对象时同步表单
   const [syncedKey, setSyncedKey] = useState<string>('');
@@ -144,7 +146,14 @@ function ProviderDialog({ open, initial, allProviders, onClose, onSave }: Provid
     setForm(initial ?? emptyProvider('text', () => 'new'));
     setManualText((initial?.manualModels ?? []).join('\n'));
     setFilterText((initial?.modelFilter ?? []).join('\n'));
+    setPresetId('');
   }
+
+  const presetOptions = [
+    { value: '', label: '（不用模板，手动填）' },
+    ...PROVIDER_PRESETS.map((p) => ({ value: p.id, label: p.label })),
+  ];
+  const activePreset = getProviderPreset(presetId);
 
   const isVendor = form.protocol === 'vendor-task';
   const isManual = form.modelSource === 'manual';
@@ -191,6 +200,25 @@ function ProviderDialog({ open, initial, allProviders, onClose, onSave }: Provid
         </DialogHeader>
 
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="space-y-1.5">
+            <Label>从模板开始</Label>
+            <Select
+              options={presetOptions}
+              value={presetId}
+              onChange={(v) => {
+                const id = Array.isArray(v) ? v[0] : v;
+                setPresetId(id);
+                const preset = getProviderPreset(id);
+                if (preset) update(applyProviderPreset(form, preset));
+              }}
+            />
+            {activePreset?.note && (
+              <p className="text-[11px] text-[var(--muted-foreground)] leading-relaxed">
+                {activePreset.note}
+              </p>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <Label>名称</Label>
             <Input
@@ -347,6 +375,16 @@ function ProviderDialog({ open, initial, allProviders, onClose, onSave }: Provid
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2">
+            <div>
+              <Label>标记为网关（解析优先）</Label>
+              <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
+                同能力下优先选网关实例（协议适配 / 账号池 / 计费下沉到网关）
+              </p>
+            </div>
+            <Switch checked={!!form.isGateway} onChange={(c) => update({ isGateway: c })} />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2">
             <Label>启用该提供方</Label>
             <Switch checked={form.enabled} onChange={(c) => update({ enabled: c })} />
           </div>
@@ -403,6 +441,11 @@ function ProviderCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm text-[var(--foreground)] truncate">{provider.label}</span>
+            {provider.isGateway && (
+              <Badge variant="info" className="shrink-0">
+                网关
+              </Badge>
+            )}
             <Badge variant="outline" className="shrink-0">
               {provider.protocol}
             </Badge>

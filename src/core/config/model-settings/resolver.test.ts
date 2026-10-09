@@ -81,6 +81,17 @@ describe('resolveModelRef — §3.5 解析顺序', () => {
     expect(pr.id).toBe('p2');
   });
 
+  it('5. 网关优先（P9）：同能力下兜底先选 isGateway 实例', () => {
+    const s = settings({
+      providers: [
+        provider({ id: 'direct', capability: 'text', apiKey: 'k1' }),
+        provider({ id: 'gw', capability: 'text', apiKey: 'k2', isGateway: true }),
+      ],
+    });
+    const { provider: pr } = resolveModelRef(s, 'text');
+    expect(pr.id).toBe('gw');
+  });
+
   it('5. 无任何绑定/默认时，兜底到该能力第一个 enabled 且有 key 的实例', () => {
     const s = settings({
       providers: [

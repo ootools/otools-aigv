@@ -1,11 +1,18 @@
 /**
- * 唇同步服务 - 音画对齐
- * 支持：Sync.so API、Wav2Lip (本地)
+ * 唇同步服务 - 音画对齐（新架构）
+ * =================================================================
+ * 支持：Sync.so API、SadTalker（本地 / 云端）。
+ *
+ * 新架构：**不再从 secureStorage 取 key**——凭据从 `model-settings` 的
+ * `video.lipsync` 槽位解析（`ProviderInstance.baseUrl / apiKey / extraHeaders`）。
+ * 协议本身仍是各家私有的（sync.so 的 `input[]`、sadtalker 的 `source_image/driven_audio`），
+ * 故这里保留各自请求体，只把「配置来源」收敛到新架构。
  */
 
 import axios from 'axios';
 
-import { getAPIKey } from '@/core/services/ai/image/image-generation/utils';
+import { loadModelSettings } from '@/core/config/model-settings';
+import { resolveModelRef } from '@/core/config/model-settings/resolver';
 
 // ========== 类型定义 ==========
 
@@ -89,6 +96,26 @@ export interface TalkingFaceResult {
   status: 'processing' | 'completed' | 'failed';
 }
 
+/**
+ * 从新架构解析唇同步端点（槽位 `video.lipsync`）。
+ * `defaultBaseUrl` 仅在提供方没填 baseUrl 时兜底；凭据走 `ProviderInstance.apiKey / extraHeaders`。
+ * 未配置可用提供方 → `resolveModelRef` 抛具名 `ModelResolutionError`。
+ */
+async function resolveLipSyncEndpoint(
+  defaultBaseUrl: string,
+  path: string
+): Promise<{ url: string; headers: Record<string, string> }> {
+  const settings = await loadModelSettings();
+  const { provider } = resolveModelRef(settings, 'video', { slot: 'video.lipsync' });
+
+  const base = (provider.baseUrl || defaultBaseUrl).replace(/\/+$/, '');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
+  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+
+  return { url: `${base}${path}`, headers };
+}
+
 // ========== Sync.so API ==========
 
 /**
@@ -101,15 +128,12 @@ export async function syncLipWithSyncSo(
 ): Promise<LipSyncResult> {
   const { syncMode = 'cut_off', model = 'lipsync-2', clarity = 'balanced' } = options;
 
-  const apiKey = await getAPIKey('sync');
+  const { url, headers } = await resolveLipSyncEndpoint('https://api.sync.so', '/v2/lipsync');
 
   const response = await axios({
     method: 'post',
-    url: 'https://api.sync.so/v2/lipsync',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    url,
+    headers,
     data: {
       input: [
         { type: 'video', url: videoUrl },
@@ -140,15 +164,12 @@ export async function generateTalkingFace(
   audioUrl: string,
   options: TalkingFaceOptions = {}
 ): Promise<TalkingFaceResult> {
-  const apiKey = await getAPIKey('sadtalker');
+  const { url, headers } = await resolveLipSyncEndpoint('https://api.sadtalker.io', '/v1/generate');
 
   const response = await axios({
     method: 'post',
-    url: 'https://api.sadtalker.io/v1/generate',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    url,
+    headers,
     data: {
       source_image: imageUrl,
       driven_audio: audioUrl,
@@ -196,15 +217,12 @@ export async function generateTalkingHead(
  * 查询唇同步状态
  */
 export async function getLipSyncStatus(taskId: string): Promise<LipSyncResult> {
-  const apiKey = await getAPIKey('sync');
+  const { url, headers } = await resolveLipSyncEndpoint(
+    'https://api.sync.so',
+    `/v2/lipsync/${taskId}`
+  );
 
-  const response = await axios({
-    method: 'get',
-    url: `https://api.sync.so/v2/lipsync/${taskId}`,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-  });
+  const response = await axios({ method: 'get', url, headers });
 
   const data = response.data ?? response;
 
@@ -215,15 +233,12 @@ export async function getLipSyncStatus(taskId: string): Promise<LipSyncResult> {
  * 查询说话人脸状态
  */
 export async function getTalkingFaceStatus(taskId: string): Promise<TalkingFaceResult> {
-  const apiKey = await getAPIKey('sadtalker');
+  const { url, headers } = await resolveLipSyncEndpoint(
+    'https://api.sadtalker.io',
+    `/v1/generate/${taskId}`
+  );
 
-  const response = await axios({
-    method: 'get',
-    url: `https://api.sadtalker.io/v1/generate/${taskId}`,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-  });
+  const response = await axios({ method: 'get', url, headers });
 
   const data = response.data ?? response;
 
