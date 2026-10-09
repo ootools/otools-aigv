@@ -13,7 +13,7 @@ import { agentRegistry } from './AgentRegistry';
 import { BaseAgent, ROLE_TO_SLOT } from './BaseAgent';
 import { ProjectBlackboard, type InputContentType } from './ProjectBlackboard';
 
-import { getModelSettings, resolveSlotModelSafe } from '@/core/ai/runtime/model-runtime';
+import { getModelSettings, resolveCurrentSlotModel } from '@/core/ai/runtime/model-runtime';
 import { pluginRegistry } from '@/core/plugins/PluginRegistry';
 
 export class MasterDirectorAgent extends BaseAgent {
@@ -114,7 +114,7 @@ export class MasterDirectorAgent extends BaseAgent {
       // 导演自身不占槽位，无需解析
       return;
     }
-    const resolved = resolveSlotModelSafe(getModelSettings(), slot);
+    const resolved = resolveCurrentSlotModel(getModelSettings(), slot);
     if (resolved) {
       this.log(
         this.blackboard,

@@ -6,6 +6,7 @@
  * （而不是老代码那句「请先配置 API Key」）。
  */
 
+import { hasUsableCredentials, withEffectiveCredentials } from './credentials';
 import type {
   Capability,
   ModelRef,
@@ -33,13 +34,17 @@ export interface ResolveOptions {
   projectOverride?: ProjectModelOverride;
 }
 
-/** 在 settings 里找一个能力下第一个 enabled 且有 key 的 ProviderInstance */
+/**
+ * 在 settings 里找一个能力下第一个 enabled 且有「可用凭据」的 ProviderInstance。
+ * 用 `hasUsableCredentials` 而非直接看 `p.apiKey`，这样「凭据继承」的实例
+ * （自身 apiKey 为空、从别的实例继承）也能被兜底选中。
+ */
 function firstEnabledProvider(
   settings: ModelSettings,
   capability: Capability
 ): ProviderInstance | undefined {
   return settings.providers.find(
-    (p) => p.capability === capability && p.enabled && Boolean(p.apiKey)
+    (p) => p.capability === capability && p.enabled && hasUsableCredentials(settings, p)
   );
 }
 
@@ -95,13 +100,16 @@ export function resolveModelRef(
         slot
       );
     }
-    return { provider, modelId: ref.modelId || provider.defaultModel || '' };
+    return {
+      provider: withEffectiveCredentials(settings, provider),
+      modelId: ref.modelId || provider.defaultModel || '',
+    };
   }
 
-  // 5. 兜底：该能力第一个 enabled 且有 key 的实例
+  // 5. 兜底：该能力第一个 enabled 且有可用凭据的实例
   const fallback = firstEnabledProvider(settings, capability);
   if (fallback) {
-    return { provider: fallback, modelId: fallback.defaultModel || '' };
+    return { provider: withEffectiveCredentials(settings, fallback), modelId: fallback.defaultModel || '' };
   }
 
   // 6. 报错

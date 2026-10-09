@@ -18,9 +18,35 @@ export {
 export { LocalStorageBackend, OtoolsStoreBackend } from './backend';
 export type { SettingsBackend } from './backend';
 export { migrateLegacyModelConfig } from './migration';
+export {
+  getProjectOverridesBackend,
+  setProjectOverridesBackend,
+  resetProjectOverridesBackend,
+  loadProjectOverrides,
+  saveProjectOverrides,
+  getAllProjectOverrides,
+  getProjectOverride,
+  isEmptyOverride,
+  setProjectOverride,
+  clearProjectOverride,
+  setCurrentProjectId,
+  getCurrentProjectId,
+  getCurrentProjectOverride,
+  resetProjectOverrideCache,
+} from './project-overrides';
+export type { ProjectOverridesMap } from './project-overrides';
+export {
+  extractCredentials,
+  copyCredentials,
+  applyCredentials,
+  resolveEffectiveCredentials,
+  withEffectiveCredentials,
+  hasUsableCredentials,
+} from './credentials';
+export type { ProviderCredentials } from './credentials';
 
-import { loadModelSettings, saveModelSettings } from './store';
 import { migrateLegacyModelConfig } from './migration';
+import { loadModelSettings, saveModelSettings } from './store';
 import type { ModelSettings } from './types';
 
 /**

@@ -43,6 +43,7 @@ import { cn } from '@/common/utils/class-names';
 import { clearModelCache, fetchModels, probeProvider } from '@/core/ai/discovery/discovery';
 import { BUILTIN_VIDEO_DESCRIPTORS } from '@/core/ai/protocols/vendor-task-descriptors';
 import { dryRunProvider, type ProviderDryRunResult } from '@/core/ai/protocols/vendor-task-dryrun';
+import { extractCredentials } from '@/core/config/model-settings/credentials';
 import type { AuthStyle, Capability, ProtocolId, ProviderInstance } from '@/core/config/model-settings/types';
 
 
@@ -116,16 +117,22 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: '手动填写',
 };
 
+/** 「不复制 / 不继承」的哨兵值（避免用空串作为 SelectItem value） */
+const CRED_NONE = '__none__';
+
+const providerOptionLabel = (p: ProviderInstance): string => `${p.label || p.id}（${p.capability}）`;
+
 // ─────────────── 添加 / 编辑 Dialog ───────────────
 
 interface ProviderDialogProps {
   open: boolean;
   initial: ProviderInstance | null;
+  allProviders: ProviderInstance[];
   onClose: () => void;
   onSave: (provider: ProviderInstance) => void;
 }
 
-function ProviderDialog({ open, initial, onClose, onSave }: ProviderDialogProps) {
+function ProviderDialog({ open, initial, allProviders, onClose, onSave }: ProviderDialogProps) {
   const [form, setForm] = useState<ProviderInstance>(() => initial ?? emptyProvider('text', () => 'new'));
   const [manualText, setManualText] = useState('');
   const [filterText, setFilterText] = useState('');
@@ -141,6 +148,17 @@ function ProviderDialog({ open, initial, onClose, onSave }: ProviderDialogProps)
 
   const isVendor = form.protocol === 'vendor-task';
   const isManual = form.modelSource === 'manual';
+
+  // P6：凭据来源（复制 / 继承）——列出其它实例供选择
+  const otherProviders = allProviders.filter((p) => p.id !== form.id);
+  const copySourceOptions = [
+    { value: CRED_NONE, label: '（选择要复制的实例）' },
+    ...otherProviders.map((p) => ({ value: p.id, label: providerOptionLabel(p) })),
+  ];
+  const credentialSourceOptions = [
+    { value: CRED_NONE, label: '（不继承，用自己的凭据）' },
+    ...otherProviders.map((p) => ({ value: p.id, label: providerOptionLabel(p) })),
+  ];
 
   const update = (patch: Partial<ProviderInstance>) =>
     setForm((prev) => {
@@ -229,6 +247,37 @@ function ProviderDialog({ open, initial, onClose, onSave }: ProviderDialogProps)
               />
             </div>
           </div>
+
+          {otherProviders.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>从已有实例复制凭据</Label>
+                <Select
+                  options={copySourceOptions}
+                  value={CRED_NONE}
+                  onChange={(v) => {
+                    const id = Array.isArray(v) ? v[0] : v;
+                    const src = otherProviders.find((p) => p.id === id);
+                    if (src) {
+                      update(extractCredentials(src));
+                      toast.success(`已复制「${src.label || src.id}」的凭据`);
+                    }
+                  }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>继承凭据自（可选）</Label>
+                <Select
+                  options={credentialSourceOptions}
+                  value={form.credentialSourceId ?? CRED_NONE}
+                  onChange={(v) => {
+                    const id = Array.isArray(v) ? v[0] : v;
+                    update({ credentialSourceId: id === CRED_NONE ? undefined : id });
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {isVendor && (
             <>
@@ -640,6 +689,7 @@ export default function ModelProviderSettings() {
       <ProviderDialog
         open={dialogOpen}
         initial={editing}
+        allProviders={providers}
         onClose={() => {
           setDialogOpen(false);
           setEditing(null);

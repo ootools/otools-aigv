@@ -7,6 +7,7 @@
  */
 
 import type { ProjectData } from '@/common/types';
+import { setCurrentProjectId } from '@/core/config/model-settings/project-overrides';
 
 type CurrentProjectSliceFields = {
   currentProject: ProjectData | null;
@@ -20,6 +21,10 @@ type CurrentProjectSetState = (
 
 export function createCurrentProjectSlice(set: CurrentProjectSetState) {
   return {
-    setCurrentProject: (project: ProjectData | null) => set({ currentProject: project }),
+    setCurrentProject: (project: ProjectData | null) => {
+      // P6：同步「当前工程 id」，让模型解析能套用项目级覆盖（ProjectModelOverride）
+      setCurrentProjectId(project?.id ?? null);
+      set({ currentProject: project });
+    },
   };
 }

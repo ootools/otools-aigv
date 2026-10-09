@@ -38,9 +38,9 @@ import { promptBuilderService } from './prompt-builder-service';
 
 import type { Script } from '@/common/types';
 import { mockStrategy } from '@/core/ai/providers';
-import { resolveSlotModelSafe } from '@/core/ai/runtime/model-runtime';
+import { resolveCurrentSlotModel } from '@/core/ai/runtime/model-runtime';
 import { callTextModel } from '@/core/ai/text-client';
-import { loadModelSettings } from '@/core/config/model-settings';
+import { loadModelSettings, loadProjectOverrides } from '@/core/config/model-settings';
 import { resolveTextModelRef } from '@/core/config/model-settings/resolver';
 import type { Capability, ProviderInstance, SlotId } from '@/core/config/model-settings/types';
 import { getModelById } from '@/core/config/models-config';
@@ -358,10 +358,12 @@ ${script}
     // P5：按槽位解析（capabilityForSlot + resolveModelRef）→ 走 text 统一客户端；
     // 未给槽位或槽位未解析时回退到「能力级」新架构；都没有可用新提供方时走旧链路。
     const modelSettings = await loadModelSettings();
+    // P6：项目级覆盖（按当前工程）——确保覆盖缓存就绪后再解析
+    await loadProjectOverrides();
 
     let newArch: { provider: ProviderInstance; modelId: string; capability: Capability } | null = null;
     if (slot) {
-      const resolved = resolveSlotModelSafe(modelSettings, slot);
+      const resolved = resolveCurrentSlotModel(modelSettings, slot);
       if (resolved) {
         newArch = { provider: resolved.provider, modelId: resolved.modelId, capability: resolved.capability };
       }

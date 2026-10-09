@@ -97,6 +97,14 @@ export interface ProviderInstance {
   accessKey?: string; // jwt-hs256 的 access key（如可灵）
   secretKey?: string; // jwt-hs256 的 secret key
 
+  /**
+   * 凭据继承（P6）：指向另一个 ProviderInstance 的 id，运行时用它的
+   * baseUrl / apiKey / authStyle / extraHeaders / queryParams / ak / sk 发请求
+   * （「图像 / 视频 / 语音实例继承文本实例的凭据」——多数中转站同一 key 全通）。
+   * 留空 = 用自己的凭据。
+   */
+  credentialSourceId?: string;
+
   // 声明式适配器（protocol === 'vendor-task' 时引用内置描述符）
   vendorDescriptorId?: string; // 内置描述符注册表 key（如 'kling-official'）
 
@@ -150,3 +158,6 @@ export const MODEL_SETTINGS_SCHEMA_VERSION = 2;
 
 /** 单一状态键（走 OTools 插件本地状态 / localStorage 回退） */
 export const MODEL_SETTINGS_STORAGE_KEY = 'aigv.modelSettings';
+
+/** 项目级覆盖的状态键（P6：按 projectId 存 ProjectModelOverride） */
+export const PROJECT_OVERRIDES_STORAGE_KEY = 'aigv.projectModelOverrides';

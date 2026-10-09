@@ -48,6 +48,20 @@ describe('model-runtime — 槽位解析', () => {
     expect(r.modelId).toBe('gpt-4o-mini');
   });
 
+  it('项目级覆盖优先于全局槽位绑定（P6）', () => {
+    const s = settings({
+      providers: [provider({ id: 'p1', capability: 'text' }), provider({ id: 'p2', capability: 'text' })],
+      slotBindings: {
+        'script.ingest': { slot: 'script.ingest', capability: 'text', ref: { providerId: 'p1', modelId: 'm1' } },
+      },
+    });
+    const r = resolveSlotModel(s, 'script.ingest', {
+      projectOverride: { slotBindings: { 'script.ingest': { providerId: 'p2', modelId: 'm2' } } },
+    });
+    expect(r.provider.id).toBe('p2');
+    expect(r.modelId).toBe('m2');
+  });
+
   it('storyboard.image → image，video.generate → video，audio.tts → tts', () => {
     const s = settings({
       providers: [
