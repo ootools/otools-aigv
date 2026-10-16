@@ -23,6 +23,9 @@ const root = process.cwd();
 /** 宿主按平台固定加载的库名（见 otools 的 platform_lib_name） */
 const PLATFORM_LIB_NAMES = ['Windows.dll', 'Linux.so', 'macOS.dylib'];
 
+/** 分平台包（--platform）对应的宿主标准库名 */
+const PLATFORM_PACK_LIB = { windows: 'Windows.dll', macos: 'macOS.dylib', linux: 'Linux.so' };
+
 /** 读取命令行参数 */
 function arg(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
@@ -105,8 +108,9 @@ function zip(entries) {
 /**
  * native 插件的库文件校验：lib/ 下必须至少有一个平台库，且文件名符合宿主约定。
  * 返回实际打进去的库文件名列表（用于摘要输出）。
+ * `requiredPlatform`（分平台打包）时额外要求该平台的标准库必须存在且非空。
  */
-function assertNativeLibs() {
+function assertNativeLibs(requiredPlatform = '') {
   const libDir = path.join(root, 'lib');
   if (!fs.existsSync(libDir)) {
     throw new Error('plugin.json 声明了 native.enabled，但缺少 lib/ 目录（请先构建 native 库）');
@@ -129,6 +133,12 @@ function assertNativeLibs() {
   if (present.length === 0) {
     throw new Error(`lib/ 下没有任何非空平台库（应为 ${PLATFORM_LIB_NAMES.join(' / ')}）`);
   }
+  if (requiredPlatform) {
+    const required = PLATFORM_PACK_LIB[requiredPlatform];
+    if (!present.includes(required)) {
+      throw new Error(`分平台打包缺少 ${requiredPlatform} 平台库：lib/${required} 不存在或为空`);
+    }
+  }
   return present;
 }
 
@@ -142,7 +152,14 @@ function main() {
   const outDir = path.join(root, arg('out', 'dist-pack'));
   fs.mkdirSync(outDir, { recursive: true });
 
-  const nativeLibs = manifest.native?.enabled ? assertNativeLibs() : [];
+  // --platform：打分平台包（lib/ 只保留该平台的标准库，输出 -<platform>.oplg）。
+  // 不传则打全量合包，行为与历史版本一致。
+  const platform = String(arg('platform', '') || '').trim().toLowerCase();
+  if (platform && !PLATFORM_PACK_LIB[platform]) {
+    throw new Error(`未知平台：${platform}（应为 ${Object.keys(PLATFORM_PACK_LIB).join(' / ')}）`);
+  }
+
+  const nativeLibs = manifest.native?.enabled ? assertNativeLibs(platform) : [];
 
   // 覆盖版本号，保证包内 plugin.json 与文件名一致
   manifest.version = version;
@@ -160,6 +177,17 @@ function main() {
     }
   }
 
+  // 分平台包：剔除其他平台的标准库（其余 lib/ 文件保留，避免打断依赖同目录库的插件）
+  if (platform) {
+    const keep = `lib/${PLATFORM_PACK_LIB[platform]}`;
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const name = entries[index].name;
+      if (name.startsWith('lib/') && name !== keep && PLATFORM_LIB_NAMES.includes(path.posix.basename(name))) {
+        entries.splice(index, 1);
+      }
+    }
+  }
+
   // 校验 entry 指向的文件确实在包里
   const entryFile = String(manifest.entry || '').replace(/^\.?\//, '');
   if (entryFile && !entries.some((item) => item.name === entryFile)) {
@@ -169,16 +197,28 @@ function main() {
     throw new Error('插件市场要求根目录提供 logo.svg');
   }
 
-  const output = path.join(outDir, `${packid}-${version}.oplg`);
+  const outputName = platform ? `${packid}-${version}-${platform}.oplg` : `${packid}-${version}.oplg`;
+  const output = path.join(outDir, outputName);
   fs.writeFileSync(output, zip(entries));
   // 发布目录统一为扁平结构，避免 artifact 解包层级与上传路径不一致。
-  fs.writeFileSync(path.join(outDir, 'plugin.json'), entries[0].data);
-  fs.copyFileSync(path.join(root, 'logo.svg'), path.join(outDir, 'logo.svg'));
-  const releaseFiles = [path.basename(output), 'plugin.json', 'logo.svg'];
-  const sums = releaseFiles.map(name => `${createHash('sha256').update(fs.readFileSync(path.join(outDir, name))).digest('hex')}  ${name}`);
-  fs.writeFileSync(path.join(outDir, 'SHA256SUMS'), sums.join('\n') + '\n');
-  const meta = { packid, uuid: manifest.uuid, version, output, entries: entries.length, nativeLibs };
-  fs.writeFileSync(path.join(outDir, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`, 'utf8');
+  // 分平台包不再重写 plugin.json / logo.svg（合包步骤已写入），摘要行追加到 SHA256SUMS。
+  if (!platform) {
+    fs.writeFileSync(path.join(outDir, 'plugin.json'), entries[0].data);
+    fs.copyFileSync(path.join(root, 'logo.svg'), path.join(outDir, 'logo.svg'));
+  }
+  const digest = createHash('sha256').update(fs.readFileSync(output)).digest('hex');
+  const sumsLine = `${digest}  ${outputName}`;
+  const sumsPath = path.join(outDir, 'SHA256SUMS');
+  if (platform && fs.existsSync(sumsPath)) {
+    fs.appendFileSync(sumsPath, `${sumsLine}\n`);
+  } else {
+    const releaseFiles = [outputName, 'plugin.json', 'logo.svg'];
+    const sums = releaseFiles.map(name => `${createHash('sha256').update(fs.readFileSync(path.join(outDir, name))).digest('hex')}  ${name}`);
+    fs.writeFileSync(sumsPath, sums.join('\n') + '\n');
+  }
+  const meta = { packid, uuid: manifest.uuid, version, output, entries: entries.length, nativeLibs, platform: platform || 'merged' };
+  const metaPath = path.join(outDir, platform ? `meta-${platform}.json` : 'meta.json');
+  fs.writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`, 'utf8');
   process.stdout.write(`${JSON.stringify(meta)}\n`);
 }
 

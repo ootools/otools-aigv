@@ -71,3 +71,25 @@ test('packed native library is reported and verifiable',t=>{
   const zipped=inspectZip(path.join(root,'dist-pack/plugin-a-1.0.0.oplg'));
   assert.ok(zipped.names.includes('lib/Windows.dll'));
 });
+// 分平台包：lib/ 只保留本平台库，SHA256SUMS 覆盖全部包，verify 接受多包布局
+test('per-platform pack keeps only its own library and verifies alongside the bundle',t=>{
+  const root=fixture(t);
+  fs.writeFileSync(path.join(root,'lib/Linux.so'),Buffer.from('ELF fake native library'));
+  assert.equal(pack(root).status,0);
+  const result=pack(root,['--platform','linux']);
+  assert.equal(result.status,0,result.stderr);
+  const zipped=inspectZip(path.join(root,'dist-pack/plugin-a-1.0.0-linux.oplg'));
+  assert.ok(zipped.names.includes('lib/Linux.so'));
+  assert.ok(!zipped.names.includes('lib/Windows.dll'));
+  const sums=fs.readFileSync(path.join(root,'dist-pack/SHA256SUMS'),'utf8');
+  assert.ok(sums.includes('plugin-a-1.0.0.oplg'));
+  assert.ok(sums.includes('plugin-a-1.0.0-linux.oplg'));
+  const verified=spawnSync('python',[verifyScript,path.join(root,'dist-pack')],{encoding:'utf8'});
+  assert.equal(verified.status,0,verified.stderr);
+});
+test('per-platform pack without that platform library is rejected',t=>{
+  const root=fixture(t);
+  const result=pack(root,['--platform','macos']);
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/macOS.dylib/);
+});
